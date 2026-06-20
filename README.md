@@ -24,11 +24,11 @@ MVP는 **원두별 에스프레소 다이얼링 코치**입니다.
 
 ## Development
 
-MVP 구현은 로그인 없는 local-first React/TypeScript web app으로 시작합니다.
+MVP 구현은 로그인 없는 local-first Expo/React Native app으로 전환 중입니다.
 
 ```bash
 npm install
-npm run dev
+npm run start
 ```
 
 검증 명령:
@@ -36,7 +36,6 @@ npm run dev
 ```bash
 npm run lint
 npm test
-npm run build
 ```
 
 ## Planning Documents
@@ -67,6 +66,7 @@ npm run build
 - [Derived Output Data](docs/planning/data-derived-output.md): 맛 태그, 맛 패턴, 추천 결과 데이터
 - [Data Examples and Scope](docs/planning/data-examples-and-scope.md): 데이터 예시와 저장 범위
 - [MVP Implementation Stack](docs/planning/mvp-implementation-stack.md): 로그인 없는 local-first React/TypeScript web app 구현 스택
+- [React Native Migration Plan](docs/planning/react-native-migration-plan.md): Expo/React Native 앱으로 전환하기 위한 작업 계획
 - [Ideas](docs/ideas/README.md): 검토 중인 제품 아이디어와 실험 후보
 
 ## Current Stage
