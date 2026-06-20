@@ -1,9 +1,9 @@
 import { Link } from "expo-router";
 import { useEffect, useState } from "react";
-import { Pressable, ScrollView, StyleSheet, Text } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { BeanSession } from "../../domain/types";
 import { repository } from "../repository";
-import { colors, spacing } from "../theme";
+import { colors, layout, radius, spacing, typography } from "../theme";
 
 export function SessionsScreen() {
   const [sessions, setSessions] = useState<BeanSession[]>([]);
@@ -18,10 +18,22 @@ export function SessionsScreen() {
       style={styles.screen}
       contentContainerStyle={styles.content}
     >
+      <Text selectable style={styles.kicker}>
+        세션
+      </Text>
       {sessions.length === 0 ? (
-        <Text selectable style={styles.mutedText}>
-          저장된 세션이 없습니다.
-        </Text>
+        <View style={styles.emptyPanel}>
+          <Text selectable style={styles.emptyText}>
+            아직 저장된 세션이 없습니다.
+          </Text>
+          <Link href="/" asChild>
+            <Pressable style={styles.primaryButton}>
+              <Text selectable style={styles.primaryButtonText}>
+                첫 샷 기록
+              </Text>
+            </Pressable>
+          </Link>
+        </View>
       ) : (
         sessions.map((session) => (
           <Link
@@ -33,12 +45,18 @@ export function SessionsScreen() {
             key={session.id}
           >
             <Pressable style={styles.card}>
-              <Text selectable style={styles.title}>
-                {session.name}
-              </Text>
-              <Text selectable style={styles.mutedText}>
-                {session.status} · {session.updatedAt.slice(0, 10)}
-              </Text>
+              {session.status === "active" ? <View style={styles.activeBar} /> : null}
+              <View style={styles.cardBody}>
+                <Text selectable style={styles.sessionPill}>
+                  {formatSessionStatus(session.status)}
+                </Text>
+                <Text selectable style={styles.title}>
+                  {session.name}
+                </Text>
+                <Text selectable style={styles.mutedText}>
+                  최근 업데이트 {session.updatedAt.slice(0, 10)}
+                </Text>
+              </View>
             </Pressable>
           </Link>
         ))
@@ -54,22 +72,75 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: spacing.md,
-    padding: spacing.lg,
+    padding: layout.screenPadding,
+    paddingBottom: layout.scrollBottomPadding,
+  },
+  kicker: {
+    ...typography.strongMeta,
+    color: colors.accent,
+    textTransform: "uppercase",
   },
   card: {
-    gap: spacing.xs,
+    minHeight: 76,
+    flexDirection: "row",
+    overflow: "hidden",
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    backgroundColor: colors.surface,
+  },
+  activeBar: {
+    width: 4,
+    backgroundColor: colors.primary,
+  },
+  cardBody: {
+    flex: 1,
+    gap: spacing.xs,
+    padding: spacing.lg,
+  },
+  sessionPill: {
+    ...typography.strongMeta,
+    alignSelf: "flex-start",
+    overflow: "hidden",
+    borderRadius: 4,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    color: colors.textInverse,
+    backgroundColor: colors.primaryDark,
+  },
+  title: {
+    ...typography.sectionTitle,
+    color: colors.text,
+  },
+  emptyPanel: {
+    gap: spacing.md,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
     borderWidth: 1,
     padding: spacing.lg,
     backgroundColor: colors.surface,
   },
-  title: {
-    color: colors.text,
-    fontSize: 18,
-    fontWeight: "900",
+  emptyText: {
+    ...typography.body,
+    color: colors.muted,
+  },
+  primaryButton: {
+    minHeight: layout.minTouchSize,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.sm,
+    backgroundColor: colors.primary,
+  },
+  primaryButtonText: {
+    ...typography.button,
+    color: colors.textInverse,
   },
   mutedText: {
+    ...typography.meta,
     color: colors.muted,
   },
 });
+
+function formatSessionStatus(status: BeanSession["status"]): string {
+  return status === "active" ? "진행 중" : "보관됨";
+}

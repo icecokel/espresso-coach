@@ -1,8 +1,9 @@
+import { Link } from "expo-router";
 import { useEffect, useState } from "react";
-import { ScrollView, StyleSheet, Text, View } from "react-native";
+import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ShotRecord } from "../../domain/types";
 import { repository } from "../repository";
-import { colors, spacing } from "../theme";
+import { colors, layout, radius, spacing, typography } from "../theme";
 
 export function ShotDetailScreen({ shotId }: { shotId?: string }) {
   const [shot, setShot] = useState<ShotRecord | null>(null);
@@ -31,36 +32,47 @@ export function ShotDetailScreen({ shotId }: { shotId?: string }) {
     >
       <View style={styles.resultCard}>
         <Text selectable style={styles.kicker}>
-          다음 샷
+          다음 샷에서 딱 1개만
         </Text>
         <Text selectable style={styles.primaryAction}>
           {shot.recommendation.primary.message}
         </Text>
+        <Text selectable style={styles.primaryMeta}>
+          {formatActionVariable(shot.recommendation.primary.variable)} ·{" "}
+          {formatActionDirection(shot.recommendation.primary.direction)}
+        </Text>
+        <Link href="/" asChild>
+          <Pressable style={styles.nextShotButton}>
+            <Text selectable style={styles.nextShotButtonText}>
+              다음 샷 기록
+            </Text>
+          </Pressable>
+        </Link>
       </View>
 
-      <Section title="왜 이렇게 보나요?" items={shot.recommendation.rationale} />
+      <View style={styles.factStrip}>
+        <Fact label="도징량" value={`${shot.extraction.doseGrams}g`} />
+        <Fact label="추출량" value={`${shot.extraction.yieldGrams}g`} />
+        <Fact label="시간" value={`${shot.extraction.brewSeconds}s`} />
+        <Fact label="비율" value={`1:${shot.extraction.brewRatio.toFixed(1)}`} />
+      </View>
+
       <Section
-        title="이번에는 그대로 둘 것"
+        title="그대로 둘 것"
         items={[formatKeepVariables(shot.recommendation.keepVariables)]}
       />
-      <Section title="확인하면 좋은 점" items={shot.recommendation.uncertainty} />
+      <Section title="판단 근거" items={shot.recommendation.rationale} />
+      <Section title="다음에 확인" items={shot.recommendation.uncertainty} />
       <Section
         title="다른 후보"
         items={shot.recommendation.alternatives.map((action) => action.message)}
       />
       <View style={styles.card}>
         <Text selectable style={styles.sectionTitle}>
-          추출 기록
+          맛 기록
         </Text>
         <Text selectable style={styles.bodyText}>
-          맛: {shot.extraction.tasteDescription}
-        </Text>
-        <Text selectable style={styles.bodyText}>
-          도징량 {shot.extraction.doseGrams}g · 추출량{" "}
-          {shot.extraction.yieldGrams}g · {shot.extraction.brewSeconds}s
-        </Text>
-        <Text selectable style={styles.bodyText}>
-          비율 1:{shot.extraction.brewRatio.toFixed(1)}
+          {shot.extraction.tasteDescription}
         </Text>
       </View>
     </ScrollView>
@@ -85,6 +97,32 @@ function formatKeepVariables(variables: string[]): string {
   return `${variables.map((variable) => labels[variable] ?? variable).join(", ")}은 그대로 두세요.`;
 }
 
+function formatActionVariable(variable: string): string {
+  const labels: Record<string, string> = {
+    grind_size: "분쇄도",
+    yield: "추출량",
+    dose: "도징량",
+    channeling_check: "채널링",
+    distribution: "분배",
+    tamping_consistency: "탬핑",
+    puck_prep: "퍽 준비",
+    no_change: "유지",
+  };
+  return labels[variable] ?? variable;
+}
+
+function formatActionDirection(direction: string): string {
+  const labels: Record<string, string> = {
+    finer: "더 곱게",
+    coarser: "더 굵게",
+    increase: "늘리기",
+    decrease: "줄이기",
+    keep: "그대로",
+    check: "확인",
+  };
+  return labels[direction] ?? direction;
+}
+
 function Section({ title, items }: { title: string; items: string[] }) {
   if (items.length === 0) {
     return null;
@@ -103,6 +141,19 @@ function Section({ title, items }: { title: string; items: string[] }) {
   );
 }
 
+function Fact({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.factItem}>
+      <Text selectable style={styles.factValue}>
+        {value}
+      </Text>
+      <Text selectable style={styles.factLabel}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
@@ -110,7 +161,8 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: spacing.lg,
-    padding: spacing.lg,
+    padding: layout.screenPadding,
+    paddingBottom: layout.scrollBottomPadding,
   },
   center: {
     flex: 1,
@@ -119,42 +171,82 @@ const styles = StyleSheet.create({
     backgroundColor: colors.background,
   },
   resultCard: {
-    gap: spacing.sm,
-    borderColor: "#c7dfd7",
-    borderRadius: 14,
+    gap: spacing.md,
+    borderColor: colors.borderDark,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    padding: spacing.lg,
-    backgroundColor: colors.surfaceAlt,
+    padding: 20,
+    backgroundColor: colors.ink,
   },
   card: {
     gap: spacing.sm,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.sm,
     borderWidth: 1,
     padding: spacing.lg,
     backgroundColor: colors.surface,
   },
   kicker: {
-    color: colors.primary,
-    fontSize: 13,
-    fontWeight: "800",
+    ...typography.strongMeta,
+    color: colors.mutedInverse,
   },
   primaryAction: {
-    color: colors.text,
-    fontSize: 22,
-    fontWeight: "900",
-    lineHeight: 30,
+    ...typography.resultAction,
+    color: colors.textInverse,
+  },
+  primaryMeta: {
+    ...typography.strongMeta,
+    alignSelf: "flex-start",
+    overflow: "hidden",
+    borderColor: colors.steel,
+    borderRadius: radius.pill,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.xs,
+    color: colors.mutedInverse,
+  },
+  nextShotButton: {
+    minHeight: layout.minTouchSize,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.sm,
+    backgroundColor: colors.primary,
+  },
+  nextShotButtonText: {
+    ...typography.button,
+    color: colors.textInverse,
   },
   sectionTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 17,
-    fontWeight: "800",
   },
   bodyText: {
+    ...typography.body,
     color: colors.text,
-    lineHeight: 22,
   },
   mutedText: {
+    ...typography.body,
+    color: colors.muted,
+  },
+  factStrip: {
+    flexDirection: "row",
+    gap: spacing.sm,
+  },
+  factItem: {
+    flex: 1,
+    minWidth: 0,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    padding: spacing.sm,
+    backgroundColor: colors.surface,
+  },
+  factValue: {
+    ...typography.numeric,
+    color: colors.text,
+  },
+  factLabel: {
+    ...typography.strongMeta,
     color: colors.muted,
   },
 });

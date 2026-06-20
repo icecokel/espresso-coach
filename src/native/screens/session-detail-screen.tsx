@@ -3,7 +3,7 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { BeanSession, ShotRecord } from "../../domain/types";
 import { repository } from "../repository";
-import { colors, spacing } from "../theme";
+import { colors, layout, radius, spacing, typography } from "../theme";
 
 export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
   const [session, setSession] = useState<BeanSession | null>(null);
@@ -22,19 +22,42 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
     });
   }, [sessionId]);
 
+  const latestShot = shots[shots.length - 1];
+
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       style={styles.screen}
       contentContainerStyle={styles.content}
     >
-      <View style={styles.card}>
-        <Text selectable style={styles.title}>
-          {session?.name ?? "세션 기록"}
+      <View style={styles.header}>
+        <View>
+          <Text selectable style={styles.kicker}>
+            세션
+          </Text>
+          <Text selectable style={styles.title}>
+            {session?.name ?? "세션 기록"}
+          </Text>
+        </View>
+        <Text selectable style={styles.countBadge}>
+          샷 {shots.length}개
         </Text>
-        <Text selectable style={styles.mutedText}>
-          {shots.length} shots
-        </Text>
+      </View>
+
+      <View style={styles.summaryStrip}>
+        <SummaryItem label="최근 샷" value={latestShot ? `${latestShot.shotNumber}` : "-"} />
+        <SummaryItem
+          label="평균 비율"
+          value={shots.length ? `1:${averageRatio(shots).toFixed(1)}` : "-"}
+        />
+        <SummaryItem
+          label="마지막 추천"
+          value={
+            latestShot
+              ? formatActionVariable(latestShot.recommendation.primary.variable)
+              : "-"
+          }
+        />
       </View>
 
       {shots.map((shot) => (
@@ -44,22 +67,62 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
           key={shot.id}
         >
           <Pressable style={styles.shotCard}>
-            <Text selectable style={styles.shotTitle}>
-              Shot {String(shot.shotNumber).padStart(2, "0")}
-            </Text>
-            <Text selectable style={styles.bodyText}>
-              {shot.extraction.tasteDescription}
-            </Text>
-            <Text selectable style={styles.mutedText}>
-              1:{shot.extraction.brewRatio.toFixed(1)} ·{" "}
-              {shot.extraction.brewSeconds}s ·{" "}
-              {shot.recommendation.primary.message}
-            </Text>
+            <View style={styles.shotIndex}>
+              <Text selectable style={styles.shotIndexText}>
+                {String(shot.shotNumber).padStart(2, "0")}
+              </Text>
+            </View>
+            <View style={styles.shotBody}>
+              <Text selectable style={styles.shotTitle}>
+                {shot.extraction.tasteDescription}
+              </Text>
+              <Text selectable style={styles.mutedText}>
+                1:{shot.extraction.brewRatio.toFixed(1)} ·{" "}
+                {shot.extraction.brewSeconds}s · {shot.extraction.doseGrams}g
+                → {shot.extraction.yieldGrams}g
+              </Text>
+              <Text selectable style={styles.shotAction}>
+                {formatActionVariable(shot.recommendation.primary.variable)}
+              </Text>
+            </View>
           </Pressable>
         </Link>
       ))}
     </ScrollView>
   );
+}
+
+function SummaryItem({ label, value }: { label: string; value: string }) {
+  return (
+    <View style={styles.summaryItem}>
+      <Text selectable style={styles.summaryValue}>
+        {value}
+      </Text>
+      <Text selectable style={styles.summaryLabel}>
+        {label}
+      </Text>
+    </View>
+  );
+}
+
+function averageRatio(shots: ShotRecord[]): number {
+  return (
+    shots.reduce((sum, shot) => sum + shot.extraction.brewRatio, 0) / shots.length
+  );
+}
+
+function formatActionVariable(variable: string): string {
+  const labels: Record<string, string> = {
+    grind_size: "분쇄도",
+    yield: "추출량",
+    dose: "도징량",
+    channeling_check: "채널링",
+    distribution: "분배",
+    tamping_consistency: "탬핑",
+    puck_prep: "퍽 준비",
+    no_change: "유지",
+  };
+  return labels[variable] ?? variable;
 }
 
 const styles = StyleSheet.create({
@@ -69,38 +132,95 @@ const styles = StyleSheet.create({
   },
   content: {
     gap: spacing.md,
-    padding: spacing.lg,
+    padding: layout.screenPadding,
+    paddingBottom: layout.scrollBottomPadding,
   },
-  card: {
-    gap: spacing.xs,
+  header: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  countBadge: {
+    ...typography.strongMeta,
+    overflow: "hidden",
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.textInverse,
+    backgroundColor: colors.ink,
+  },
+  summaryStrip: {
+    flexDirection: "row",
+    gap: spacing.sm,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.sm,
     borderWidth: 1,
-    padding: spacing.lg,
+    padding: spacing.md,
     backgroundColor: colors.surface,
+  },
+  summaryItem: {
+    flex: 1,
+    minWidth: 0,
+  },
+  summaryValue: {
+    ...typography.label,
+    color: colors.text,
+  },
+  summaryLabel: {
+    ...typography.strongMeta,
+    color: colors.muted,
+  },
+  kicker: {
+    ...typography.strongMeta,
+    color: colors.primary,
+    textTransform: "uppercase",
   },
   title: {
+    ...typography.screenTitle,
     color: colors.text,
-    fontSize: 20,
-    fontWeight: "900",
   },
   shotCard: {
-    gap: spacing.xs,
+    flexDirection: "row",
+    gap: spacing.md,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.sm,
     borderWidth: 1,
     padding: spacing.lg,
     backgroundColor: colors.surface,
   },
-  shotTitle: {
-    color: colors.text,
-    fontWeight: "900",
+  shotIndex: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.sm,
+    backgroundColor: colors.ink,
   },
-  bodyText: {
+  shotIndexText: {
+    ...typography.strongMeta,
+    color: colors.textInverse,
+  },
+  shotBody: {
+    flex: 1,
+    gap: 4,
+  },
+  shotTitle: {
+    ...typography.label,
     color: colors.text,
-    lineHeight: 22,
   },
   mutedText: {
+    ...typography.meta,
     color: colors.muted,
+  },
+  shotAction: {
+    ...typography.strongMeta,
+    alignSelf: "flex-start",
+    overflow: "hidden",
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    color: colors.primaryDark,
+    backgroundColor: colors.surfaceAlt,
   },
 });

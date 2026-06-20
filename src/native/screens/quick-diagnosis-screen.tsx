@@ -25,7 +25,7 @@ import type {
 } from "../../domain/types";
 import { createAutoBeanSession } from "../../storage/repository";
 import { repository } from "../repository";
-import { colors, spacing } from "../theme";
+import { colors, layout, radius, spacing, typography } from "../theme";
 
 interface FormState {
   tasteDescription: string;
@@ -50,36 +50,48 @@ const initialFormState: FormState = {
 };
 
 const prepOptions: Array<{ id: PrepObservationId; label: string }> = [
-  { id: "no_issue_observed", label: "이상한 점은 없었다" },
-  { id: "one_sided_flow", label: "한쪽으로만 흘렀다" },
+  { id: "no_issue_observed", label: "이상 없음" },
+  { id: "one_sided_flow", label: "한쪽 흐름" },
   { id: "spurting_or_spraying", label: "튀거나 샜다" },
-  { id: "sudden_flow_acceleration", label: "흐름이 갑자기 빨라졌다" },
-  { id: "cracked_puck", label: "퍽이 갈라졌다" },
-  { id: "uneven_puck_surface", label: "퍽 표면이 고르지 않았다" },
-  { id: "soupy_puck", label: "퍽이 질척했다" },
-  { id: "tilted_tamp", label: "탬핑이 기울어진 것 같다" },
-  { id: "uneven_distribution", label: "분배가 고르지 않았다" },
-  { id: "not_sure", label: "잘 모르겠다" },
+  { id: "sudden_flow_acceleration", label: "갑자기 빨라짐" },
+  { id: "cracked_puck", label: "갈라진 퍽" },
+  { id: "uneven_puck_surface", label: "고르지 않은 퍽" },
+  { id: "soupy_puck", label: "질척함" },
+  { id: "tilted_tamp", label: "탬핑 기울음" },
+  { id: "uneven_distribution", label: "분배 불균일" },
+  { id: "not_sure", label: "모름" },
 ];
 
 export function QuickDiagnosisScreen() {
   const [form, setForm] = useState<FormState>(initialFormState);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [submitError, setSubmitError] = useState<string | undefined>();
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [activeSession, setActiveSession] = useState<BeanSession | null>(null);
   const [recentShots, setRecentShots] = useState<ShotRecord[]>([]);
+  const nextShotNumber = recentShots.length + 1;
 
   useEffect(() => {
     void loadLatestSession();
   }, []);
 
   async function loadLatestSession() {
-    const sessions = await repository.listSessions();
-    const session = sessions.find((item) => item.status === "active") ?? null;
-    setActiveSession(session);
-    setRecentShots(session ? await repository.listShots(session.id) : []);
+    try {
+      const sessions = await repository.listSessions();
+      const session = sessions.find((item) => item.status === "active") ?? null;
+      setActiveSession(session);
+      setRecentShots(session ? await repository.listShots(session.id) : []);
+    } catch {
+      setSubmitError("세션 기록을 불러오지 못했습니다.");
+    }
   }
 
   async function handleSubmit() {
+    if (isSubmitting) {
+      return;
+    }
+
+    setSubmitError(undefined);
     const requiredInput = {
       tasteDescription: form.tasteDescription,
       doseGrams: parseNumber(form.doseGrams),
@@ -92,48 +104,55 @@ export function QuickDiagnosisScreen() {
       return;
     }
 
-    const now = new Date().toISOString();
-    const session =
-      activeSession ??
-      (await repository.createSession(createAutoBeanSession({ now })));
-    const shotNumber = await repository.getNextShotNumber(session.id);
-    const extraction = buildExtraction(requiredInput);
-    const basicObservation = deriveBasicObservation({
-      grindNote: form.grindNote,
-      prepObservations: form.prepObservations,
-    });
-    const { tasteTags, tastePatterns } = parseTasteDescription(
-      extraction.tasteDescription,
-    );
-    const changesFromPrevious = buildShotChanges(form);
-    const recommendation = buildRecommendation({
-      session,
-      extraction,
-      basicObservation,
-      changesFromPrevious,
-      tasteTags,
-      tastePatterns,
-    });
-    const savedShot = await repository.createShot({
-      id: createId("shot"),
-      sessionId: session.id,
-      shotNumber,
-      extraction,
-      basicObservation,
-      advancedObservation: null,
-      changesFromPrevious,
-      tasteTags,
-      tastePatterns,
-      recommendation,
-      pulledAt: now,
-      createdAt: now,
-      updatedAt: now,
-    });
+    setIsSubmitting(true);
+    try {
+      const now = new Date().toISOString();
+      const session =
+        activeSession ??
+        (await repository.createSession(createAutoBeanSession({ now })));
+      const shotNumber = await repository.getNextShotNumber(session.id);
+      const extraction = buildExtraction(requiredInput);
+      const basicObservation = deriveBasicObservation({
+        grindNote: form.grindNote,
+        prepObservations: form.prepObservations,
+      });
+      const { tasteTags, tastePatterns } = parseTasteDescription(
+        extraction.tasteDescription,
+      );
+      const changesFromPrevious = buildShotChanges(form);
+      const recommendation = buildRecommendation({
+        session,
+        extraction,
+        basicObservation,
+        changesFromPrevious,
+        tasteTags,
+        tastePatterns,
+      });
+      const savedShot = await repository.createShot({
+        id: createId("shot"),
+        sessionId: session.id,
+        shotNumber,
+        extraction,
+        basicObservation,
+        advancedObservation: null,
+        changesFromPrevious,
+        tasteTags,
+        tastePatterns,
+        recommendation,
+        pulledAt: now,
+        createdAt: now,
+        updatedAt: now,
+      });
 
-    setActiveSession(session);
-    setRecentShots(await repository.listShots(session.id));
-    setForm(initialFormState);
-    router.push({ pathname: "/shot/[shotId]", params: { shotId: savedShot.id } });
+      setActiveSession(session);
+      setRecentShots(await repository.listShots(session.id));
+      setForm(initialFormState);
+      router.push({ pathname: "/shot/[shotId]", params: { shotId: savedShot.id } });
+    } catch {
+      setSubmitError("추천을 저장하지 못했습니다. 다시 시도해주세요.");
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   function togglePrepObservation(id: PrepObservationId) {
@@ -146,12 +165,47 @@ export function QuickDiagnosisScreen() {
   }
 
   return (
-    <ScrollView
-      contentInsetAdjustmentBehavior="automatic"
-      style={styles.screen}
-      contentContainerStyle={styles.content}
-    >
+    <View style={styles.screen}>
+      <ScrollView
+        contentInsetAdjustmentBehavior="automatic"
+        style={styles.scroller}
+        contentContainerStyle={styles.content}
+      >
+      <View style={styles.topBar}>
+        <View>
+          <Text selectable style={styles.screenTitle}>
+            빠른 진단
+          </Text>
+          <Text selectable style={styles.screenSubtitle}>
+            이번 샷을 기록하고 다음 조정을 받기
+          </Text>
+        </View>
+        <Text selectable style={styles.shotBadge}>
+          샷 {String(nextShotNumber).padStart(2, "0")}
+        </Text>
+      </View>
+
+      <View style={styles.statusStrip}>
+        <Text selectable style={styles.statusItem}>
+          {activeSession?.name ?? "새 원두 세션"}
+        </Text>
+        <Text selectable style={styles.statusItem}>
+          최근 기록 {recentShots.length}
+        </Text>
+        <Text selectable style={styles.statusItem}>
+          추천은 1개만
+        </Text>
+      </View>
+
       <View style={styles.form}>
+        <View style={styles.sectionHeader}>
+          <Text selectable style={styles.sectionKicker}>
+            필수 입력
+          </Text>
+          <Text selectable style={styles.sectionTitle}>
+            추출값
+          </Text>
+        </View>
         <InputField
           label="맛"
           value={form.tasteDescription}
@@ -187,7 +241,17 @@ export function QuickDiagnosisScreen() {
             error={errors.brewSeconds}
           />
         </View>
+      </View>
 
+      <View style={styles.form}>
+        <View style={styles.sectionHeader}>
+          <Text selectable style={styles.sectionKicker}>
+            선택 관찰
+          </Text>
+          <Text selectable style={styles.sectionTitle}>
+            관찰
+          </Text>
+        </View>
         <InputField
           label="분쇄도 메모"
           value={form.grindNote}
@@ -312,39 +376,29 @@ export function QuickDiagnosisScreen() {
           </View>
         ) : null}
 
-        <Pressable style={styles.primaryButton} onPress={handleSubmit}>
-          <Text selectable style={styles.primaryButtonText}>
-            추천 받기
+        {submitError ? (
+          <Text selectable style={styles.submitError}>
+            {submitError}
           </Text>
-        </Pressable>
+        ) : null}
       </View>
 
       <View style={styles.history}>
-        <Text selectable style={styles.sectionTitle}>
-          최근 샷
-        </Text>
+        <View style={styles.sectionHeader}>
+          <Text selectable style={styles.sectionKicker}>
+            기록
+          </Text>
+          <Text selectable style={styles.sectionTitle}>
+            최근 샷
+          </Text>
+        </View>
         <Link href="/sessions" asChild>
-          <Pressable style={styles.secondaryButton}>
+          <Pressable accessibilityRole="link" style={styles.textAction}>
             <Text selectable style={styles.secondaryButtonText}>
-              세션 목록 보기
+              전체 세션 보기
             </Text>
           </Pressable>
         </Link>
-        {activeSession ? (
-          <Link
-            href={{
-              pathname: "/session/[sessionId]",
-              params: { sessionId: activeSession.id },
-            }}
-            asChild
-          >
-            <Pressable style={styles.secondaryButton}>
-              <Text selectable style={styles.secondaryButtonText}>
-                세션 기록 보기
-              </Text>
-            </Pressable>
-          </Link>
-        ) : null}
         {recentShots.length === 0 ? (
           <Text selectable style={styles.mutedText}>
             기록된 샷이 없습니다.
@@ -357,19 +411,44 @@ export function QuickDiagnosisScreen() {
               key={shot.id}
             >
               <Pressable style={styles.shotCard}>
-                <Text selectable style={styles.shotTitle}>
-                  Shot {String(shot.shotNumber).padStart(2, "0")}
-                </Text>
-                <Text selectable style={styles.mutedText}>
-                  1:{shot.extraction.brewRatio.toFixed(1)} ·{" "}
-                  {shot.extraction.brewSeconds}s
+                <View style={styles.shotIndex}>
+                  <Text selectable style={styles.shotIndexText}>
+                    {String(shot.shotNumber).padStart(2, "0")}
+                  </Text>
+                </View>
+                <View style={styles.shotBody}>
+                  <Text selectable style={styles.shotTitle} numberOfLines={1}>
+                    {shot.extraction.tasteDescription}
+                  </Text>
+                  <Text selectable style={styles.mutedText}>
+                    1:{shot.extraction.brewRatio.toFixed(1)} ·{" "}
+                    {shot.extraction.brewSeconds}s · {shot.extraction.doseGrams}
+                    g → {shot.extraction.yieldGrams}g
+                  </Text>
+                </View>
+                <Text selectable style={styles.shotAction}>
+                  {formatActionVariable(shot.recommendation.primary.variable)}
                 </Text>
               </Pressable>
             </Link>
           ))
         )}
       </View>
-    </ScrollView>
+      </ScrollView>
+
+      <View style={styles.actionBar}>
+        <Pressable
+          accessibilityRole="button"
+          disabled={isSubmitting}
+          style={[styles.primaryButton, isSubmitting && styles.primaryButtonDisabled]}
+          onPress={handleSubmit}
+        >
+          <Text selectable style={styles.primaryButtonText}>
+            {isSubmitting ? "저장 중" : "추천 받기"}
+          </Text>
+        </Pressable>
+      </View>
+    </View>
   );
 }
 
@@ -400,6 +479,7 @@ function InputField({
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
+          placeholderTextColor={colors.muted}
           keyboardType={suffix ? "decimal-pad" : "default"}
           multiline={multiline}
           style={[styles.input, multiline && styles.textArea]}
@@ -445,45 +525,113 @@ function createId(prefix: "shot"): string {
   return `${prefix}_${Date.now().toString(36)}`;
 }
 
+function formatActionVariable(variable: string): string {
+  const labels: Record<string, string> = {
+    grind_size: "분쇄도",
+    yield: "추출량",
+    dose: "도징량",
+    channeling_check: "채널링",
+    distribution: "분배",
+    tamping_consistency: "탬핑",
+    puck_prep: "퍽 준비",
+    no_change: "유지",
+  };
+  return labels[variable] ?? variable;
+}
+
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
   },
+  scroller: {
+    flex: 1,
+  },
   content: {
     gap: spacing.lg,
-    padding: spacing.lg,
+    padding: layout.screenPadding,
+    paddingBottom: 112,
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  screenTitle: {
+    ...typography.screenTitle,
+    color: colors.text,
+  },
+  screenSubtitle: {
+    ...typography.screenSubtitle,
+    color: colors.muted,
+  },
+  shotBadge: {
+    ...typography.strongMeta,
+    overflow: "hidden",
+    borderColor: colors.ink,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    color: colors.textInverse,
+    backgroundColor: colors.ink,
+  },
+  statusStrip: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    padding: spacing.md,
+    backgroundColor: colors.surface,
+  },
+  statusItem: {
+    ...typography.strongMeta,
+    color: colors.muted,
   },
   form: {
     gap: spacing.lg,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.sm,
     borderWidth: 1,
     padding: spacing.lg,
     backgroundColor: colors.surface,
   },
+  sectionHeader: {
+    gap: 2,
+  },
+  sectionKicker: {
+    ...typography.strongMeta,
+    color: colors.primary,
+  },
   field: {
     gap: spacing.xs,
+    flex: 1,
+    minWidth: 0,
   },
   label: {
+    ...typography.label,
     color: colors.text,
-    fontSize: 15,
-    fontWeight: "700",
   },
   inputRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    minWidth: 0,
   },
   input: {
+    ...typography.numeric,
     flex: 1,
+    minWidth: 0,
     minHeight: 44,
-    borderColor: colors.border,
-    borderRadius: 10,
+    borderColor: colors.surfaceStrong,
+    borderRadius: 6,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     color: colors.text,
-    backgroundColor: colors.surface,
+    backgroundColor: "#ffffff",
   },
   textArea: {
     minHeight: 92,
@@ -491,16 +639,21 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   suffix: {
+    ...typography.label,
     color: colors.muted,
-    fontWeight: "700",
   },
   errorText: {
+    ...typography.label,
     color: colors.danger,
-    fontSize: 13,
-    fontWeight: "600",
+  },
+  submitError: {
+    ...typography.label,
+    color: colors.danger,
   },
   numberGrid: {
-    gap: spacing.md,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
   },
   group: {
     gap: spacing.sm,
@@ -511,71 +664,111 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
   },
   option: {
+    minHeight: layout.minTouchSize,
+    justifyContent: "center",
     borderColor: colors.border,
-    borderRadius: 10,
+    borderRadius: radius.pill,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
+    backgroundColor: "#ffffff",
   },
   optionSelected: {
     borderColor: colors.primary,
-    backgroundColor: colors.surfaceAlt,
-  },
-  optionText: {
-    color: colors.text,
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  optionTextSelected: {
-    color: colors.primary,
-  },
-  primaryButton: {
-    alignItems: "center",
-    borderRadius: 12,
-    paddingVertical: spacing.md,
     backgroundColor: colors.primary,
   },
+  optionText: {
+    ...typography.body,
+    color: colors.text,
+  },
+  optionTextSelected: {
+    color: colors.textInverse,
+  },
+  primaryButton: {
+    minHeight: 56,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.sm,
+    paddingVertical: spacing.lg,
+    backgroundColor: colors.primary,
+  },
+  primaryButtonDisabled: {
+    opacity: 0.65,
+  },
   primaryButtonText: {
+    ...typography.button,
     color: "#fff",
-    fontSize: 16,
-    fontWeight: "800",
   },
   history: {
-    gap: spacing.sm,
+    gap: spacing.md,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.sm,
     borderWidth: 1,
     padding: spacing.lg,
     backgroundColor: colors.surface,
   },
   sectionTitle: {
+    ...typography.sectionTitle,
     color: colors.text,
-    fontSize: 18,
-    fontWeight: "800",
   },
-  secondaryButton: {
-    alignItems: "center",
-    borderColor: colors.border,
-    borderRadius: 10,
-    borderWidth: 1,
-    paddingVertical: spacing.sm,
+  textAction: {
+    minHeight: layout.minTouchSize,
+    justifyContent: "center",
   },
   secondaryButtonText: {
+    ...typography.label,
     color: colors.primary,
-    fontWeight: "800",
   },
   shotCard: {
-    gap: 4,
-    borderColor: colors.border,
-    borderRadius: 10,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.md,
+    borderColor: colors.surfaceStrong,
+    borderRadius: radius.sm,
     borderWidth: 1,
     padding: spacing.md,
+    backgroundColor: "#ffffff",
+  },
+  shotIndex: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.sm,
+    backgroundColor: colors.ink,
+  },
+  shotIndexText: {
+    ...typography.strongMeta,
+    color: colors.textInverse,
+  },
+  shotBody: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
   },
   shotTitle: {
+    ...typography.label,
     color: colors.text,
-    fontWeight: "800",
   },
   mutedText: {
+    ...typography.meta,
     color: colors.muted,
+  },
+  shotAction: {
+    ...typography.strongMeta,
+    flexShrink: 0,
+    overflow: "hidden",
+    borderRadius: 6,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    color: colors.primaryDark,
+    backgroundColor: colors.surfaceAlt,
+  },
+  actionBar: {
+    borderTopColor: colors.border,
+    borderTopWidth: 1,
+    padding: spacing.md,
+    paddingBottom: spacing.lg,
+    backgroundColor: colors.surface,
   },
 });
