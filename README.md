@@ -22,6 +22,23 @@ MVP는 **원두별 에스프레소 다이얼링 코치**입니다.
 - 우선순위형 추천: 여러 후보를 보여주되 실제 조정은 한 번에 하나만 권장
 - 기본 모드와 고급 모드 분리
 
+## Development
+
+MVP 구현은 로그인 없는 local-first React/TypeScript web app으로 시작합니다.
+
+```bash
+npm install
+npm run dev
+```
+
+검증 명령:
+
+```bash
+npm run lint
+npm test
+npm run build
+```
+
 ## Planning Documents
 
 - [Agent Handoff Prompt](docs/agent-handoff-prompt.md): 다른 에이전트가 이 프로젝트를 이어받기 위한 프롬프트
