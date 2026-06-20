@@ -13,7 +13,7 @@
 | `beanName` | string | no | 원두 이름 |
 | `roaster` | string | no | 로스터 또는 구매처 |
 | `roastDate` | date string | no | 로스팅 날짜 |
-| `roastProfile` | object | no | 배전 범위와 사용자의 확신도 |
+| `roastProfile` | object | yes | 배전 범위와 사용자의 확신도. 모르면 `unknown` 값으로 저장 |
 | `note` | string | no | 세션 메모 |
 | `status` | enum | yes | `active`, `archived` |
 | `createdAt` | datetime string | yes | 생성 시각 |
@@ -22,6 +22,7 @@
 Rules:
 - 세션 이름 없이 빠른 진단을 시작하면 `새 원두 세션 YYYY-MM-DD` 형식으로 자동 생성한다.
 - 원두 상세 정보는 선택값이다.
+- `roastProfile`은 항상 저장한다. 사용자가 모르면 `range`, `confidence`, `source`를 모두 `unknown`으로 둔다.
 - 배전 정도는 정확한 고정값이 아니라 범위로 저장한다.
 - 세션 삭제/보관 정책은 MVP 구현 전 별도 결정한다.
 
@@ -53,6 +54,16 @@ Rules:
 - `confidence`가 낮으면 추천 결과의 불확실성에 반영한다.
 - 배전 범위만으로 추출 문제를 단정하지 않는다.
 
+Unknown default:
+
+```json
+{
+  "range": "unknown",
+  "confidence": "unknown",
+  "source": "unknown"
+}
+```
+
 Example:
 
 ```json
@@ -74,4 +85,3 @@ Example:
   "updatedAt": "2026-06-04T09:00:00+09:00"
 }
 ```
-

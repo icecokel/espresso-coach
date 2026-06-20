@@ -55,14 +55,20 @@ Pattern rules:
 | `matchedRules` | array | yes | 적용된 추천 rule ID |
 | `keepVariables` | array | yes | 이번 샷에서 유지하라고 안내할 변수 |
 
+Rules:
+- 저장된 `ShotRecord`는 항상 `recommendation` snapshot을 가진다.
+- 추천 결과는 샷 생성 시점의 판단을 재현하기 위한 데이터이므로, 나중에 rule이 바뀌어도 기존 샷의 추천 문구는 그대로 남긴다.
+- `keepVariables`는 `grind_size`, `dose`, `yield`, `tamping_consistency`, `distribution`, `puck_prep`, `advanced_condition` 중에서 사용한다.
+- 만족스러운 샷처럼 바꿀 변수가 없을 때는 `primary.variable = no_change`, `direction = keep`, `amountLabel = none`을 사용한다.
+
 ## RecommendationAction
 
 | Field | Type | Required | Values |
 | --- | --- | --- | --- |
 | `id` | string | yes | action 고유 ID |
-| `variable` | enum | yes | `grind_size`, `dose`, `yield`, `brew_time`, `tamping_consistency`, `distribution`, `channeling_check`, `puck_prep`, `advanced_condition` |
+| `variable` | enum | yes | `no_change`, `grind_size`, `dose`, `yield`, `tamping_consistency`, `distribution`, `channeling_check`, `puck_prep`, `advanced_condition` |
 | `direction` | enum | yes | `finer`, `coarser`, `increase`, `decrease`, `check`, `keep` |
-| `amountLabel` | enum/string | yes | `one_small_step`, `small`, `next_shot_observation`, `none` |
+| `amountLabel` | enum | yes | `one_small_step`, `small`, `next_shot_observation`, `none` |
 | `priority` | number | yes | `1`, `2`, `3` |
 | `message` | string | yes | 사용자에게 보여줄 추천 문구 |
 
@@ -71,4 +77,5 @@ Rules:
 - `primary.priority`는 `1`이다.
 - `alternatives`는 우선순위 후보일 뿐 동시에 실행하라고 안내하지 않는다.
 - `keepVariables`는 한 번에 여러 변수를 바꾸지 않게 하기 위한 표시용 데이터다.
-
+- `no_change`는 맛이 만족스러워 다음 샷에서 변수를 바꾸지 않는 추천에만 사용한다.
+- 추출 시간은 recommendation action이 아니라 진단 신호다. 시간 관련 메시지는 `rationale` 또는 `uncertainty`에서 설명한다.

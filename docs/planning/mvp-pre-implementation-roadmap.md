@@ -79,11 +79,16 @@ MVP 구현 전에 끝내야 할 기획 산출물을 정리한다. 목표는 코�
 | `RecommendationResult` | 추천 결과 전체 |
 | `RecommendationAction` | 다음 샷에서 실행할 조정안 |
 
-### Decisions Needed
+### Decisions
 
 - 사용자 화면 이름은 `프로젝트`로 둘 수 있지만, 내부 타입은 `BeanSession`으로 유지한다.
+- `BeanSession.roastProfile`은 required이며, 모르면 `unknown` default로 저장한다.
 - `BasicObservation`에는 사용자가 체크한 원본 `prepObservations`와 추천 로직용 요약값을 함께 저장한다.
+- `advancedObservation`은 required field이며, 고급 입력이 없으면 `null`로 저장한다.
 - 추천 결과는 샷 생성 시점의 판단을 재현할 수 있게 `ShotRecord.recommendation`에 저장한다.
+- 저장된 샷은 항상 `recommendation` snapshot을 가진다.
+- 추출 시간은 추천 action이 아니라 진단 신호로만 사용한다.
+- 직전 샷 변경 없음 또는 모름은 `changesFromPrevious = []`로 표현한다.
 
 ### Completion Criteria
 
@@ -211,12 +216,15 @@ MVP 기본 패턴:
 - `matchedRules`
 - `keepVariables`
 
-### Decisions Needed
+### Remaining Decisions
 
 - `brewTimeBand`와 `brewRatioBand`의 MVP 기준을 유지할지 조정할지 확정한다.
 - observation override가 recipe variable보다 우선하는 조건을 확정한다.
 - 동점일 때의 tie break 순서를 확정한다.
-- `brew_time`을 추천 action으로 유지할지, 진단 신호로만 둘지 정한다.
+
+Confirmed:
+
+- `brew_time`은 추천 action에서 제외하고 진단 신호로만 둔다.
 
 ### Completion Criteria
 
@@ -350,4 +358,3 @@ Recommended order:
 - 실제 LLM API 의존 추천
 - 계정/팀/공유 로그
 - 원두 이미지 자동 분석
-

@@ -34,7 +34,7 @@
 ## Data
 
 - 배전 정도는 어떤 구조로 저장할 것인가?  
-  - 상세안: `BeanSession.roastProfile`에 범위, 라벨, 확신도, 출처로 저장.
+  - 확정: `BeanSession.roastProfile` required. 범위, 라벨, 확신도, 출처로 저장하고 모르면 `unknown` default를 사용.
 - 실제 샷 추출 시각과 기록 생성 시각을 분리할 것인가?  
   - 상세안: `pulledAt`과 `createdAt`을 분리한다.
 - 샷 기록은 로컬 스토리지부터 시작할 것인가, 서버 DB부터 시작할 것인가?  
@@ -42,7 +42,7 @@
 - 원두별 세션과 샷 기록을 어떤 스키마로 나눌 것인가?  
   - 상세안: `BeanSession`과 `ShotRecord`로 분리. 직전 샷 비교용 `ShotChange`를 샷 기록에 포함.
 - 고급 모드 데이터는 기본 스키마에 nullable 필드로 둘 것인가, 별도 advanced object로 둘 것인가?  
-  - 상세안: 별도 `advanced` object.
+  - 확정: 별도 `advancedObservation` object로 두고, 고급 입력이 없으면 `null`로 저장.
 
 ## Implementation
 

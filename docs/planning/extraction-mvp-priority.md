@@ -20,16 +20,15 @@ Rules:
 
 ## Secondary or Uncertainty Candidates
 
-1. `brew_time`
-2. `roast_profile`
-3. `temperature`
-4. `preinfusion`
-5. `pressure`
-6. `days_off_roast`
-7. `water`
+1. `roast_profile`
+2. `temperature`
+3. `preinfusion`
+4. `pressure`
+5. `days_off_roast`
+6. `water`
 
 Rules:
-- `brew_time`은 직접 조정 변수보다 진단 신호로 쓴다.
+- `brew_time`은 추천 후보가 아니라 진단 신호로만 쓴다.
 - `roast_profile`은 상위 해석 컨텍스트이며 단독 추천 근거로 쓰지 않는다.
 - 고급 변수는 기본 흐름에서 primary가 되지 않는다.
 
@@ -46,4 +45,3 @@ Rules:
 Rules:
 - MVP primary 추천에서 제외한다.
 - 필요하면 고급 모드 메모 또는 deferred data로 둔다.
-

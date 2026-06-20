@@ -13,11 +13,11 @@
 | `shotNumber` | number | yes | 세션 안의 샷 순서, 1부터 시작 |
 | `extraction` | object | yes | 추출 입력값과 파생값 |
 | `basicObservation` | object | yes | 기본 관찰값 |
-| `advancedObservation` | object | no | 고급 모드 관찰값 |
+| `advancedObservation` | object or null | yes | 고급 모드 관찰값. 고급 입력이 없으면 `null` |
 | `changesFromPrevious` | array | yes | 직전 샷 대비 변경값. 첫 샷은 빈 배열 |
 | `tasteTags` | array | yes | 자연어 맛 설명에서 추출한 개별 맛 태그 |
 | `tastePatterns` | array | yes | 여러 태그에서 파생한 복합 패턴 |
-| `recommendation` | object | no | 다음 샷 추천 결과 |
+| `recommendation` | object | yes | 다음 샷 추천 결과. 저장된 샷은 항상 추천 snapshot을 가진다 |
 | `pulledAt` | datetime string | yes | 실제 샷을 추출한 시각. 사용자가 수정 가능 |
 | `createdAt` | datetime string | yes | 생성 시각 |
 | `updatedAt` | datetime string | yes | 마지막 수정 시각 |
@@ -25,6 +25,8 @@
 Rules:
 - 첫 샷은 직전 샷이 없으므로 `changesFromPrevious`를 빈 배열로 저장한다.
 - 두 번째 샷부터 사용자가 직전 샷 대비 변경값을 선택할 수 있다.
+- 변경 없음 또는 모름은 별도 `none` 객체를 저장하지 않고 `changesFromPrevious = []`로 표현한다.
+- 저장된 샷은 추천 결과를 함께 저장한다. 추천 계산에 실패한 임시 상태는 MVP 저장 데이터가 아니다.
 - 자유 텍스트 메모는 보여줄 수 있지만 추천 계산에는 구조화된 변경값만 사용한다.
 - `pulledAt`은 실제 추출 시각이고, `createdAt`은 기록 생성 시각이다. 과거 샷을 나중에 입력할 수 있으므로 둘을 분리한다.
 
@@ -130,6 +132,7 @@ Derivation rules:
 | `preinfusionNote` | string | no | 프리인퓨전 메모 |
 
 Rules:
+- 고급 입력이 없으면 `advancedObservation`은 `null`로 저장한다.
 - 고급 관찰값은 기본 추천 변수보다 후순위 또는 조건부 대안으로만 사용한다.
 - 비어 있어도 빠른 진단과 추천은 진행된다.
 
@@ -139,12 +142,13 @@ Rules:
 
 | Field | Type | Required | Values |
 | --- | --- | --- | --- |
-| `variable` | enum | yes | `grind_size`, `dose`, `yield`, `brew_time`, `tamping_consistency`, `distribution`, `puck_prep`, `advanced_condition` |
+| `variable` | enum | yes | `grind_size`, `dose`, `yield`, `tamping_consistency`, `distribution`, `puck_prep`, `advanced_condition` |
 | `direction` | enum | yes | `finer`, `coarser`, `increase`, `decrease`, `improved`, `worse`, `changed`, `unknown` |
-| `amountLabel` | enum/string | no | `one_small_step`, `small`, `next_shot_observation` 등 |
+| `amountLabel` | enum | no | `one_small_step`, `small`, `next_shot_observation`, `none` |
 | `note` | string | no | 변경 메모 |
 
 Rules:
 - 추천 로직은 `ShotChange`가 있을 때만 직전 샷 비교를 계산한다.
+- 추출 시간은 직접 조정 변수로 저장하지 않는다. 시간 변화는 `brewSeconds`와 파생 band에서 진단 신호로만 사용한다.
 - `note`는 사람이 읽는 메모이며 추천 계산 입력이 아니다.
 - 한 샷에서 여러 변경값을 기록할 수 있지만, 결과 화면은 다음 샷에서 한 변수만 바꾸도록 안내한다.

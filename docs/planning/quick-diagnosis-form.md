@@ -140,14 +140,14 @@ Warning은 추천을 금지하지 않는다. MVP는 입문자 이탈을 줄이�
 
 | Field | Label | Type | Options |
 | --- | --- | --- | --- |
-| `changedVariable` | 직전 샷에서 무엇을 바꿨나요? | enum | `none`, `grind_size`, `dose`, `yield`, `brew_time`, `tamping_consistency`, `distribution`, `puck_prep`, `advanced_condition` |
+| `changedVariable` | 직전 샷에서 무엇을 바꿨나요? | enum | `none`, `grind_size`, `dose`, `yield`, `tamping_consistency`, `distribution`, `puck_prep`, `advanced_condition` |
 | `changeDirection` | 어느 방향으로 바꿨나요? | enum | `finer`, `coarser`, `increase`, `decrease`, `improved`, `worse`, `changed`, `unknown` |
 | `changeNote` | 변경 메모 | text | optional |
 
 Default:
 - 첫 샷: 변경 입력을 숨기고 `changesFromPrevious = []`
 - 두 번째 샷 이후: 접힌 선택 영역으로 제공
-- 사용자가 모르면 `none` 또는 `unknown`을 허용
+- 사용자가 `none`을 선택하거나 모르면 별도 `ShotChange`를 만들지 않고 `changesFromPrevious = []`로 저장
 
 ## MVP Decisions
 
@@ -157,3 +157,4 @@ Default:
 - 단위 입력은 자유 텍스트가 아니라 숫자 입력 + 고정 단위 표시로 처리한다.
 - 현실 범위 밖 숫자는 차단하지 않고 경고로 처리한다.
 - 직전 샷 비교는 사용자가 선택한 구조화된 변경 입력이 있을 때만 사용한다.
+- 추출 시간은 직접 변경 변수로 받지 않는다. 시간은 `brewSeconds`, `brewTimeBand`를 통해 진단 신호로만 사용한다.

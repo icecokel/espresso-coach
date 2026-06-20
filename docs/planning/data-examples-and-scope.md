@@ -91,7 +91,7 @@
       "채널링 관찰값이 없어 분쇄도 문제와 퍽 준비 문제를 완전히 구분하기 어렵습니다."
     ],
     "matchedRules": ["R-PREP-CONFLICT"],
-    "keepVariables": ["dose", "yield", "brew_time"]
+    "keepVariables": ["dose", "yield", "grind_size"]
   },
   "pulledAt": "2026-06-04T09:18:00+09:00",
   "createdAt": "2026-06-04T09:20:00+09:00",
@@ -127,8 +127,9 @@
 - 배전 정도는 `BeanSession.roastProfile`에 범위형 데이터로 저장한다.
 - 빠른 진단 필수 입력은 `extraction`에 모은다.
 - 실제 추출 시각인 `pulledAt`과 기록 생성 시각인 `createdAt`을 분리한다.
-- 고급 모드 데이터는 `advancedObservation`으로 분리한다.
+- 고급 모드 데이터는 `advancedObservation`으로 분리하고, 고급 입력이 없으면 `null`로 저장한다.
 - 직전 샷 비교는 `changesFromPrevious`의 구조화된 변경값만 사용한다.
+- 직전 샷 대비 변경 없음 또는 모름은 `changesFromPrevious = []`로 표현한다.
 - 복합 맛은 `mixed` 태그가 아니라 `TastePattern`으로 표현한다.
-- 샷 기록에는 당시의 맛 태그, 맛 패턴, 추천 결과를 저장한다.
+- 저장된 샷 기록에는 당시의 맛 태그, 맛 패턴, 추천 결과를 항상 저장한다.
 - 기술 스택과 저장소 선택은 이 문서에서 정하지 않는다.
