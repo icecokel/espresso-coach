@@ -18,7 +18,7 @@ MVP는 **원두별 에스프레소 다이얼링 코치**입니다.
 - 배전 범위를 원두 세션의 선택 컨텍스트로 기록
 - 분쇄도, 채널링, 퍽 상태, 탬핑/레벨링 관찰 기록
 - 배전 범위별 추출 변수와 맛 기대값 해석
-- 하이브리드 자연어 처리: 규칙 기반 태깅 + 애매한 문장에 대한 LLM 보정
+- 자연어 처리: MVP는 규칙 기반 태깅 우선, 실제 LLM API 보정은 MVP 이후 검토
 - 우선순위형 추천: 여러 후보를 보여주되 실제 조정은 한 번에 하나만 권장
 - 기본 모드와 고급 모드 분리
 
@@ -28,8 +28,8 @@ MVP는 **원두별 에스프레소 다이얼링 코치**입니다.
 - [Agent Work Prompt](docs/agent-work-prompt.md): 다른 에이전트가 바로 기획/구현 작업을 시작하기 위한 실행 프롬프트
 - [Product Brief](docs/planning/product-brief.md): 현재까지 합의된 제품 정의
 - [MVP Scope](docs/planning/mvp-scope.md): MVP 포함/제외 범위
-- [MVP Pre-Implementation Roadmap](docs/planning/mvp-pre-implementation-roadmap.md): 구현 전 완료해야 할 기획 산출물과 순서
-- [Open Questions](docs/planning/open-questions.md): 다음 기획 단계에서 풀어야 할 질문
+- [MVP Pre-Implementation Roadmap](docs/planning/mvp-pre-implementation-roadmap.md): 기획 산출물 완료 상태와 다음 구현 순서
+- [Open Questions](docs/planning/open-questions.md): 기존 open question의 확정 상태와 남은 질문
 - [Competitive Research](docs/planning/competitive-research.md): 유사 앱/서비스 조사와 차별화 방향
 - [Competitive Feature and Feedback Research](docs/planning/competitive-feature-feedback.md): 경쟁 앱 기능, 평가, 유저 불편 포인트
 - [User Journey and Screen Flow](docs/planning/user-journey-and-screen-flow.md): 사용자 여정과 화면 흐름
@@ -43,14 +43,15 @@ MVP는 **원두별 에스프레소 다이얼링 코치**입니다.
 - [Extraction Control Expectations](docs/planning/extraction-control-expectations.md): 변수별 조정 방향과 맛 기대값
 - [Extraction MVP Priority](docs/planning/extraction-mvp-priority.md): MVP 추천 변수 우선순위
 - [Recommendation Rule Table](docs/planning/recommendation-rule-table.md): 추천 rule table 초안
+- [Recommendation Result Copy](docs/planning/recommendation-result-copy.md): 추천 결과 화면 문구 템플릿
 - [Data Structure](docs/planning/data-model.md): 데이터 구조 문서 인덱스
 - [Session Data](docs/planning/data-session.md): 세션과 배전 범위 데이터
 - [Shot Data](docs/planning/data-shot.md): 샷 입력, 관찰값, 변경값 데이터
 - [Derived Output Data](docs/planning/data-derived-output.md): 맛 태그, 맛 패턴, 추천 결과 데이터
 - [Data Examples and Scope](docs/planning/data-examples-and-scope.md): 데이터 예시와 저장 범위
-- [MVP Implementation Stack](docs/planning/mvp-implementation-stack.md): 기술 스택 보류 상태와 구현 전제 조건
+- [MVP Implementation Stack](docs/planning/mvp-implementation-stack.md): 로그인 없는 local-first React/TypeScript web app 구현 스택
 - [Ideas](docs/ideas/README.md): 검토 중인 제품 아이디어와 실험 후보
 
 ## Current Stage
 
-현재는 앱 구현 전 **제품 기획 및 MVP 검증 단계**입니다.
+현재는 MVP 구현을 시작할 수 있도록 **제품, 데이터, 추천, 화면, 스택 계약을 확정한 상태**입니다.

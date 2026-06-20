@@ -2,9 +2,9 @@
 
 ## Purpose
 
-MVP 구현 전에 끝내야 할 기획 산출물을 정리한다. 목표는 코딩 단계에서 제품 판단, 데이터 구조, 추천 로직, 화면 문구를 새로 고민하지 않게 만드는 것이다.
+MVP 구현 전에 끝낸 기획 산출물과 다음 구현 순서를 정리한다. 목표는 코딩 단계에서 제품 판단, 데이터 구조, 추천 로직, 화면 문구를 새로 고민하지 않게 만드는 것이다.
 
-이 문서는 기술 스택을 정하지 않는다. 구현을 빠르게 하기 위한 제품/데이터/로직 계약을 먼저 확정한다.
+제품/데이터/로직/화면/문구 계약은 구현을 시작할 수 있을 만큼 확정되었고, 첫 구현 스택은 [MVP Implementation Stack](mvp-implementation-stack.md)에 정리되어 있다.
 
 ## Current Goal
 
@@ -34,19 +34,19 @@ MVP 구현 전에 끝내야 할 기획 산출물을 정리한다. 목표는 코�
 - 추천은 절대값보다 상대적 next step으로 표현한다.
 - 사용자가 한 번에 여러 변수를 바꾸도록 유도하지 않는다.
 - 선택 관찰값이 없으면 추천을 막지 않고 불확실성에 반영한다.
-- 기술 스택은 아래 산출물이 확정된 뒤 결정한다.
+- 첫 구현은 로그인 없는 local-first React/TypeScript web app으로 시작한다.
 
 ## Roadmap Summary
 
-| Order | Workstream | Output | Why It Matters |
+| Order | Workstream | Output | Status |
 | --- | --- | --- | --- |
-| 1 | Data Contract | 구현 가능한 타입 명세 | 저장소, 상태, 추천 로직, UI가 같은 구조를 공유한다. |
-| 2 | Quick Diagnosis Contract | 입력 필드/validation/default 확정 | 첫 화면과 샷 기록 흐름을 흔들리지 않게 만든다. |
-| 3 | Taste Parsing Contract | 맛 태그 사전과 파싱 규칙 | 자연어 입력을 안정적인 내부 신호로 바꾼다. |
-| 4 | Recommendation Contract | rule table, scoring, action shape | MVP의 코칭 품질을 구현 전에 검증한다. |
-| 5 | Result Copy Contract | 결과 화면 문구 템플릿 | 추천 결과가 초보자에게 실행 가능한 말로 보인다. |
-| 6 | Screen Flow Contract | MVP 화면 단위와 상태 흐름 | 구현할 화면 범위와 navigation을 고정한다. |
-| 7 | Stack Decision | 첫 구현 스택 결정 | 위 계약을 실제 코드로 옮길 기준을 정한다. |
+| 1 | Data Contract | 구현 가능한 타입 명세 | 완료 |
+| 2 | Quick Diagnosis Contract | 입력 필드/validation/default 확정 | 완료 |
+| 3 | Taste Parsing Contract | 맛 태그 사전과 파싱 규칙 | 완료 |
+| 4 | Recommendation Contract | rule table, scoring, action shape | 완료 |
+| 5 | Result Copy Contract | 결과 화면 문구 템플릿 | 완료 |
+| 6 | Screen Flow Contract | MVP 화면 단위와 상태 흐름 | 완료 |
+| 7 | Stack Decision | 첫 구현 스택 결정 | 완료 |
 
 ## 1. Data Contract
 
@@ -132,10 +132,10 @@ Advanced:
 - `equipmentNote`
 - `preinfusionNote`
 
-### Decisions Needed
+### Decisions Captured
 
-- 첫 샷에서 세션이 없으면 자동 세션을 만들지, 세션 생성을 먼저 요구할지 결정한다.
-- 배전 범위 입력을 빠른 진단 화면에 바로 둘지, 세션 설정에만 둘지 결정한다.
+- 첫 샷에서 세션이 없으면 제출 시 자동 세션을 만든다.
+- 배전 범위는 빠른 진단 화면에서 받을 수 있고, 세션의 `roastProfile`로 저장한다.
 - `prepObservations`는 체크리스트로 받고, `channelingObserved`, `puckCondition`, `prepIssue`, `prepIssueTypes`는 저장 시 파생한다.
 
 ### Completion Criteria
@@ -174,12 +174,12 @@ MVP 기본 패턴:
 - `balanced_with_negative_signal`
 - `unknown_description`
 
-### Decisions Needed
+### Decisions Captured
 
-- 한국어 표현 사전과 태그 매핑을 표로 확정한다.
-- 강도 표현을 `1`, `2`, `3`으로 매핑한다.
-- 위치 표현을 `start`, `middle`, `finish`, `overall`로 매핑한다.
-- 모호하거나 복합적인 표현은 rule-based 결과를 먼저 만들고, LLM은 보정 후보로만 둔다.
+- 한국어 표현 사전과 태그 매핑을 표로 확정했다.
+- 강도 표현은 `1`, `2`, `3`으로 매핑한다.
+- 위치 표현은 `start`, `middle`, `finish`, `overall`로 매핑한다.
+- 모호하거나 복합적인 표현은 rule-based 결과를 먼저 만들고, MVP에서는 실제 LLM API를 붙이지 않는다.
 
 ### Completion Criteria
 
@@ -216,14 +216,11 @@ MVP 기본 패턴:
 - `matchedRules`
 - `keepVariables`
 
-### Remaining Decisions
+### Decisions Captured
 
-- `brewTimeBand`와 `brewRatioBand`의 MVP 기준을 유지할지 조정할지 확정한다.
-- observation override가 recipe variable보다 우선하는 조건을 확정한다.
-- 동점일 때의 tie break 순서를 확정한다.
-
-Confirmed:
-
+- `brewTimeBand`와 `brewRatioBand`의 MVP 기준은 고정한다.
+- observation override가 recipe variable보다 우선하는 조건을 확정했다.
+- 동점일 때의 tie break 순서를 확정했다.
 - `brew_time`은 추천 action에서 제외하고 진단 신호로만 둔다.
 
 ### Completion Criteria
@@ -240,9 +237,9 @@ Confirmed:
 
 추천 결과를 초보자가 바로 실행 가능한 문구로 보여준다.
 
-### Document to Create
+### Primary Document
 
-- `docs/planning/recommendation-result-copy.md`
+- [Recommendation Result Copy](recommendation-result-copy.md)
 
 ### Required Sections
 
@@ -280,12 +277,12 @@ MVP 화면 단위와 상태 흐름을 확정한다.
 - Recommendation result
 - Shot detail
 
-### Decisions Needed
+### Decisions Captured
 
-- 첫 화면을 세션 목록으로 둘지, 빠른 진단 시작으로 둘지 결정한다.
-- 추천 결과 저장 후 사용자가 다음 샷을 바로 기록하는 흐름을 정한다.
-- 세션 없이 빠른 진단을 시작할 때 자동 세션 생성 여부를 정한다.
-- 고급 모드 진입 위치를 정한다.
+- 첫 화면은 빠른 진단 시작 중심으로 둔다.
+- 추천 결과 저장 후 사용자는 같은 세션의 다음 샷을 바로 기록할 수 있다.
+- 세션 없이 빠른 진단을 시작하면 제출 시 자동 세션을 만든다.
+- 고급 모드는 `Quick Diagnosis Input` 안의 opt-in toggle로 둔다.
 
 ### Completion Criteria
 
@@ -304,9 +301,9 @@ MVP 화면 단위와 상태 흐름을 확정한다.
 
 - [MVP Implementation Stack](mvp-implementation-stack.md)
 
-### Decision Timing
+### Status
 
-아래 항목이 끝난 뒤 결정한다.
+아래 항목이 끝난 뒤 첫 구현 스택을 결정했고, 현재 결정은 [MVP Implementation Stack](mvp-implementation-stack.md)에 정리되어 있다.
 
 - Data Contract
 - Quick Diagnosis Contract
@@ -315,29 +312,35 @@ MVP 화면 단위와 상태 흐름을 확정한다.
 - Result Copy Contract
 - Screen Flow Contract
 
-### Stack Decision Questions
+### Stack Decisions
 
-- 웹앱부터 시작할 것인가, 모바일앱부터 시작할 것인가?
-- 로그인 없이 로컬 저장으로 시작할 것인가?
-- 추천 로직은 앱 내부 순수 함수로 둘 것인가?
-- LLM은 MVP에서 실제 API로 붙일 것인가, mock classifier로 시작할 것인가?
-- rule table은 코드 상수, JSON, 또는 별도 config 중 어디에 둘 것인가?
+- 첫 구현 대상은 web app이다.
+- MVP는 로그인 없이 local-first 저장으로 시작한다.
+- 저장소는 IndexedDB를 기본으로 하되 adapter/repository layer 뒤에 둔다.
+- 프론트엔드는 React SPA + TypeScript + Vite-based scaffold로 시작한다.
+- 추천 로직은 앱 내부 pure TypeScript function으로 둔다.
+- MVP에서는 실제 LLM API를 붙이지 않고 rule-based parser를 먼저 구현한다.
+- rule table은 typed TypeScript constants로 둔다.
 
 ## Recommended Next Work
 
-가장 먼저 할 작업은 `Data Contract` 정리다.
+기획 계약 이슈 #1-#7은 구현을 시작할 수 있을 만큼 완료되었다. 다음 작업은 구현 이슈 #8부터 시작하고, 이후 #9-#16을 번호순으로 진행한다.
 
 Recommended order:
 
-1. `data-model.md`를 실제 타입 인덱스처럼 재정리한다.
-2. `data-session.md`, `data-shot.md`, `data-derived-output.md`의 필드명을 맞춘다.
-3. `data-examples-and-scope.md`의 완성 예시를 최신 구조로 업데이트한다.
-4. `quick-diagnosis-form.md`가 데이터 타입과 정확히 연결되는지 점검한다.
-5. 그 다음 맛 태그와 추천 rule을 고정한다.
+1. Implementation issue #8
+2. Implementation issue #9
+3. Implementation issue #10
+4. Implementation issue #11
+5. Implementation issue #12
+6. Implementation issue #13
+7. Implementation issue #14
+8. Implementation issue #15
+9. Implementation issue #16
 
 ## MVP Planning Done Definition
 
-아래 조건을 모두 만족하면 구현으로 넘어갈 수 있다.
+아래 조건을 모두 만족했으므로 구현으로 넘어갈 수 있다.
 
 - 모든 핵심 타입의 필드와 enum이 확정되어 있다.
 - 빠른 진단 필드와 validation이 확정되어 있다.
@@ -345,7 +348,7 @@ Recommended order:
 - 추천 rule table이 primary action을 만들 수 있다.
 - 결과 화면 문구 템플릿이 있다.
 - MVP 화면 흐름이 확정되어 있다.
-- 기술 스택을 정할 수 있을 만큼 제품/데이터/로직 불확실성이 줄어 있다.
+- 첫 구현 기술 스택이 확정되어 있다.
 
 ## Out of Scope Before MVP Implementation
 
