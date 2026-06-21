@@ -2,7 +2,7 @@
 
 ## Purpose
 
-이 문서는 현재 React/Vite 웹앱으로 구현된 Espresso Coach MVP를 **React Native 앱**으로 전환하기 위한 작업 계획서다.
+이 문서는 React/Vite 웹앱으로 시작한 Espresso Coach MVP를 **React Native 앱**으로 전환하기 위한 작업 계획서다.
 
 전환 목표는 화면 런타임을 모바일 앱으로 바꾸되, 이미 구현된 도메인 계약과 추천 로직을 버리지 않는 것이다. 현재 코드의 핵심 자산은 `src/domain`의 순수 TypeScript 로직이다. 이 로직은 React Native에서도 그대로 재사용한다.
 
@@ -10,15 +10,20 @@
 
 현재 구현 상태:
 
-- React + TypeScript + Vite 웹앱
+- Expo + React Native + TypeScript 앱
+- Expo Router 기반 entrypoint
 - 빠른 진단 입력 화면
+- 세션 목록, 세션 상세, 샷 상세 화면
+- native local repository
 - rule-based taste parser
 - recommendation engine
 - repository interface
-- browser `IndexedDB` 저장소
 - domain/storage 단위 테스트
+- Pretendard 기반 typography
+- light/dark theme
+- 앱 로고와 icon/favicon asset
 
-현재 모바일 전환 시 재사용 가능한 영역:
+현재 모바일 앱에서 재사용 중인 영역:
 
 - `src/domain/types.ts`
 - `src/domain/defaults.ts`
@@ -27,13 +32,19 @@
 - `src/domain/recommendation/*`
 - domain test fixtures and unit tests
 
-모바일 전환 시 교체해야 하는 영역:
+전환 과정에서 교체된 영역:
 
 - `src/main.tsx`
 - `src/ui/*`
 - Vite config and browser entrypoint
 - browser `IndexedDB` adapter
 - CSS Modules styling
+
+남은 검증 영역:
+
+- Expo Go 또는 simulator/emulator 실기기 시나리오 확인
+- EAS preview build 설정과 설치 앱 검증
+- production build/signing/store submission 준비
 
 ## Migration Decision
 
@@ -343,6 +354,13 @@ Exit criteria:
 
 Goal: MVP 핵심 시나리오를 모바일 디바이스 기준으로 검증한다.
 
+Current headless status:
+
+- `npm run lint`: pass
+- `npm test`: pass, 5 test files / 24 tests
+- `npm exec expo-doctor`: pass, 18/18 checks
+- `npx expo export --platform web`: pass
+
 Scenarios:
 
 1. 첫 실행 후 빠른 진단 입력
@@ -355,8 +373,20 @@ Scenarios:
 Exit criteria:
 
 - iOS simulator 또는 Android emulator에서 핵심 시나리오가 통과한다.
+- Expo Go 또는 EAS preview build에서 실제 기기 smoke test가 통과한다.
 - unit tests pass.
 - TypeScript compile pass.
+- Expo project health check가 통과한다.
+- web production export가 통과한다.
+
+Remaining device/build checks:
+
+- iOS/Android actual runtime
+- safe area and keyboard behavior
+- OS dark mode integration
+- app icon display
+- SQLite persistence after app restart
+- EAS preview build artifact install
 
 ## Issue Mapping
 
@@ -405,6 +435,8 @@ React Native migration은 아래 조건을 만족하면 완료로 본다.
 - 세션과 샷이 native local storage에 저장된다.
 - 앱 재시작 후 저장된 shot history를 볼 수 있다.
 - 기존 domain unit tests가 통과한다.
+- headless verification이 통과한다.
+- Expo Go 또는 EAS preview build smoke test가 통과한다.
 - recommendation snapshot 저장 규칙이 유지된다.
 - `brew_time`은 recommendation action으로 추가되지 않는다.
 

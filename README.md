@@ -24,7 +24,7 @@ MVP는 **원두별 에스프레소 다이얼링 코치**입니다.
 
 ## Development
 
-MVP 구현은 로그인 없는 local-first Expo/React Native app으로 전환 중입니다.
+MVP 구현은 로그인 없는 local-first Expo/React Native app입니다.
 
 ```bash
 npm install
@@ -36,7 +36,11 @@ npm run start
 ```bash
 npm run lint
 npm test
+npm exec expo-doctor
+npx expo export --platform web
 ```
+
+현재 자동화 가능한 headless 검증은 통과했습니다. 실기기 고유 동작과 설치 앱 동작은 Expo Go 또는 EAS preview build로 추가 확인해야 합니다.
 
 ## Planning Documents
 
@@ -67,8 +71,9 @@ npm test
 - [Data Examples and Scope](docs/planning/data-examples-and-scope.md): 데이터 예시와 저장 범위
 - [MVP Implementation Stack](docs/planning/mvp-implementation-stack.md): 로그인 없는 local-first React/TypeScript web app 구현 스택
 - [React Native Migration Plan](docs/planning/react-native-migration-plan.md): Expo/React Native 앱으로 전환하기 위한 작업 계획
+- [Verification Status](docs/planning/verification-status.md): headless 검증 결과와 남은 실기기/EAS 검증 범위
 - [Ideas](docs/ideas/README.md): 검토 중인 제품 아이디어와 실험 후보
 
 ## Current Stage
 
-현재는 MVP 구현을 시작할 수 있도록 **제품, 데이터, 추천, 화면, 스택 계약을 확정한 상태**입니다.
+현재는 Expo/React Native MVP 앱의 기본 구현과 headless 검증을 완료했고, 실기기 검증과 EAS preview build 검증을 앞둔 상태입니다.
