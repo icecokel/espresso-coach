@@ -3,9 +3,18 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ShotRecord } from "../../domain/types";
 import { repository } from "../repository";
-import { colors, layout, radius, spacing, typography } from "../theme";
+import {
+  layout,
+  radius,
+  spacing,
+  typography,
+  useAppTheme,
+  type AppColors,
+} from "../theme";
 
 export function ShotDetailScreen({ shotId }: { shotId?: string }) {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const [shot, setShot] = useState<ShotRecord | null>(null);
 
   useEffect(() => {
@@ -51,21 +60,47 @@ export function ShotDetailScreen({ shotId }: { shotId?: string }) {
       </View>
 
       <View style={styles.factStrip}>
-        <Fact label="도징량" value={`${shot.extraction.doseGrams}g`} />
-        <Fact label="추출량" value={`${shot.extraction.yieldGrams}g`} />
-        <Fact label="시간" value={`${shot.extraction.brewSeconds}s`} />
-        <Fact label="비율" value={`1:${shot.extraction.brewRatio.toFixed(1)}`} />
+        <Fact
+          label="도징량"
+          styles={styles}
+          value={`${shot.extraction.doseGrams}g`}
+        />
+        <Fact
+          label="추출량"
+          styles={styles}
+          value={`${shot.extraction.yieldGrams}g`}
+        />
+        <Fact
+          label="시간"
+          styles={styles}
+          value={`${shot.extraction.brewSeconds}s`}
+        />
+        <Fact
+          label="비율"
+          styles={styles}
+          value={`1:${shot.extraction.brewRatio.toFixed(1)}`}
+        />
       </View>
 
       <Section
         title="그대로 둘 것"
         items={[formatKeepVariables(shot.recommendation.keepVariables)]}
+        styles={styles}
       />
-      <Section title="판단 근거" items={shot.recommendation.rationale} />
-      <Section title="다음에 확인" items={shot.recommendation.uncertainty} />
+      <Section
+        title="판단 근거"
+        items={shot.recommendation.rationale}
+        styles={styles}
+      />
+      <Section
+        title="다음에 확인"
+        items={shot.recommendation.uncertainty}
+        styles={styles}
+      />
       <Section
         title="다른 후보"
         items={shot.recommendation.alternatives.map((action) => action.message)}
+        styles={styles}
       />
       <View style={styles.card}>
         <Text selectable style={styles.sectionTitle}>
@@ -123,7 +158,15 @@ function formatActionDirection(direction: string): string {
   return labels[direction] ?? direction;
 }
 
-function Section({ title, items }: { title: string; items: string[] }) {
+function Section({
+  title,
+  items,
+  styles,
+}: {
+  title: string;
+  items: string[];
+  styles: ShotDetailStyles;
+}) {
   if (items.length === 0) {
     return null;
   }
@@ -141,7 +184,15 @@ function Section({ title, items }: { title: string; items: string[] }) {
   );
 }
 
-function Fact({ label, value }: { label: string; value: string }) {
+function Fact({
+  label,
+  styles,
+  value,
+}: {
+  label: string;
+  styles: ShotDetailStyles;
+  value: string;
+}) {
   return (
     <View style={styles.factItem}>
       <Text selectable style={styles.factValue}>
@@ -154,7 +205,10 @@ function Fact({ label, value }: { label: string; value: string }) {
   );
 }
 
-const styles = StyleSheet.create({
+type ShotDetailStyles = ReturnType<typeof createStyles>;
+
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -172,7 +226,7 @@ const styles = StyleSheet.create({
   },
   resultCard: {
     gap: spacing.md,
-    borderColor: colors.borderDark,
+    borderColor: colors.inkSoft,
     borderRadius: radius.sm,
     borderWidth: 1,
     padding: 20,
@@ -198,19 +252,19 @@ const styles = StyleSheet.create({
     ...typography.strongMeta,
     alignSelf: "flex-start",
     overflow: "hidden",
-    borderColor: colors.steel,
+    borderColor: colors.accent,
     borderRadius: radius.pill,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.xs,
-    color: colors.mutedInverse,
+    color: colors.textInverse,
   },
   nextShotButton: {
     minHeight: layout.minTouchSize,
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.sm,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
   },
   nextShotButtonText: {
     ...typography.button,
@@ -249,4 +303,5 @@ const styles = StyleSheet.create({
     ...typography.strongMeta,
     color: colors.muted,
   },
-});
+  });
+}

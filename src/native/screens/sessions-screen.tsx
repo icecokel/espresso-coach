@@ -3,9 +3,18 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { BeanSession } from "../../domain/types";
 import { repository } from "../repository";
-import { colors, layout, radius, spacing, typography } from "../theme";
+import {
+  layout,
+  radius,
+  spacing,
+  typography,
+  useAppTheme,
+  type AppColors,
+} from "../theme";
 
 export function SessionsScreen() {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const [sessions, setSessions] = useState<BeanSession[]>([]);
 
   useEffect(() => {
@@ -65,7 +74,8 @@ export function SessionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -91,7 +101,7 @@ const styles = StyleSheet.create({
   },
   activeBar: {
     width: 4,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.accent,
   },
   cardBody: {
     flex: 1,
@@ -106,7 +116,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing.sm,
     paddingVertical: 4,
     color: colors.textInverse,
-    backgroundColor: colors.primaryDark,
+    backgroundColor: colors.inkSoft,
   },
   title: {
     ...typography.sectionTitle,
@@ -129,7 +139,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     borderRadius: radius.sm,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
   },
   primaryButtonText: {
     ...typography.button,
@@ -139,7 +149,8 @@ const styles = StyleSheet.create({
     ...typography.meta,
     color: colors.muted,
   },
-});
+  });
+}
 
 function formatSessionStatus(status: BeanSession["status"]): string {
   return status === "active" ? "진행 중" : "보관됨";

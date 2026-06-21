@@ -1,9 +1,10 @@
 import { Stack } from "expo-router";
 import { useFonts } from "expo-font";
 import { StatusBar } from "expo-status-bar";
-import { colors, typography } from "../src/native/theme";
+import { typography, useAppTheme } from "../src/native/theme";
 
 export default function RootLayout() {
+  const { colors, colorScheme } = useAppTheme();
   const [fontsLoaded] = useFonts({
     "Pretendard-Regular": require("../assets/fonts/Pretendard-Regular.otf"),
     "Pretendard-Medium": require("../assets/fonts/Pretendard-Medium.otf"),
@@ -32,7 +33,7 @@ export default function RootLayout() {
         <Stack.Screen name="shot/[shotId]" options={{ title: "샷 기록" }} />
         <Stack.Screen name="session/[sessionId]" options={{ title: "세션 기록" }} />
       </Stack>
-      <StatusBar style="auto" />
+      <StatusBar style={colorScheme === "dark" ? "light" : "dark"} />
     </>
   );
 }

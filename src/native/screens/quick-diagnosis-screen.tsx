@@ -25,7 +25,14 @@ import type {
 } from "../../domain/types";
 import { createAutoBeanSession } from "../../storage/repository";
 import { repository } from "../repository";
-import { colors, layout, radius, spacing, typography } from "../theme";
+import {
+  layout,
+  radius,
+  spacing,
+  typography,
+  useAppTheme,
+  type AppColors,
+} from "../theme";
 
 interface FormState {
   tasteDescription: string;
@@ -63,6 +70,8 @@ const prepOptions: Array<{ id: PrepObservationId; label: string }> = [
 ];
 
 export function QuickDiagnosisScreen() {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const [form, setForm] = useState<FormState>(initialFormState);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | undefined>();
@@ -207,7 +216,9 @@ export function QuickDiagnosisScreen() {
           </Text>
         </View>
         <InputField
+          colors={colors}
           label="맛"
+          styles={styles}
           value={form.tasteDescription}
           onChangeText={(tasteDescription) => setForm({ ...form, tasteDescription })}
           placeholder="예: 시고 끝맛이 떫다"
@@ -217,7 +228,9 @@ export function QuickDiagnosisScreen() {
 
         <View style={styles.numberGrid}>
           <InputField
+            colors={colors}
             label="도징량"
+            styles={styles}
             value={form.doseGrams}
             onChangeText={(doseGrams) => setForm({ ...form, doseGrams })}
             placeholder="18.0"
@@ -225,7 +238,9 @@ export function QuickDiagnosisScreen() {
             error={errors.doseGrams}
           />
           <InputField
+            colors={colors}
             label="추출량"
+            styles={styles}
             value={form.yieldGrams}
             onChangeText={(yieldGrams) => setForm({ ...form, yieldGrams })}
             placeholder="36.0"
@@ -233,7 +248,9 @@ export function QuickDiagnosisScreen() {
             error={errors.yieldGrams}
           />
           <InputField
+            colors={colors}
             label="시간"
+            styles={styles}
             value={form.brewSeconds}
             onChangeText={(brewSeconds) => setForm({ ...form, brewSeconds })}
             placeholder="28"
@@ -253,7 +270,9 @@ export function QuickDiagnosisScreen() {
           </Text>
         </View>
         <InputField
+          colors={colors}
           label="분쇄도 메모"
+          styles={styles}
           value={form.grindNote}
           onChangeText={(grindNote) => setForm({ ...form, grindNote })}
           placeholder="예: 18 클릭"
@@ -453,7 +472,9 @@ export function QuickDiagnosisScreen() {
 }
 
 function InputField({
+  colors,
   label,
+  styles,
   value,
   onChangeText,
   placeholder,
@@ -461,7 +482,9 @@ function InputField({
   multiline = false,
   error,
 }: {
+  colors: AppColors;
   label: string;
+  styles: QuickDiagnosisStyles;
   value: string;
   onChangeText: (value: string) => void;
   placeholder: string;
@@ -539,7 +562,10 @@ function formatActionVariable(variable: string): string {
   return labels[variable] ?? variable;
 }
 
-const styles = StyleSheet.create({
+type QuickDiagnosisStyles = ReturnType<typeof createStyles>;
+
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -569,7 +595,7 @@ const styles = StyleSheet.create({
   shotBadge: {
     ...typography.strongMeta,
     overflow: "hidden",
-    borderColor: colors.ink,
+    borderColor: colors.inkSoft,
     borderRadius: radius.sm,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
@@ -604,7 +630,7 @@ const styles = StyleSheet.create({
   },
   sectionKicker: {
     ...typography.strongMeta,
-    color: colors.primary,
+    color: colors.accent,
   },
   field: {
     gap: spacing.xs,
@@ -631,7 +657,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     color: colors.text,
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.surface,
   },
   textArea: {
     minHeight: 92,
@@ -666,16 +692,16 @@ const styles = StyleSheet.create({
   option: {
     minHeight: layout.minTouchSize,
     justifyContent: "center",
-    borderColor: colors.border,
+    borderColor: colors.surfaceStrong,
     borderRadius: radius.pill,
     borderWidth: 1,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.surface,
   },
   optionSelected: {
-    borderColor: colors.primary,
-    backgroundColor: colors.primary,
+    borderColor: colors.primaryDark,
+    backgroundColor: colors.primaryDark,
   },
   optionText: {
     ...typography.body,
@@ -697,7 +723,7 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     ...typography.button,
-    color: "#fff",
+    color: colors.textInverse,
   },
   history: {
     gap: spacing.md,
@@ -727,7 +753,7 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     borderWidth: 1,
     padding: spacing.md,
-    backgroundColor: "#ffffff",
+    backgroundColor: colors.surface,
   },
   shotIndex: {
     width: 36,
@@ -761,8 +787,10 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    borderColor: colors.border,
+    borderWidth: 1,
     color: colors.primaryDark,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.backgroundAlt,
   },
   actionBar: {
     borderTopColor: colors.border,
@@ -771,4 +799,5 @@ const styles = StyleSheet.create({
     paddingBottom: spacing.lg,
     backgroundColor: colors.surface,
   },
-});
+  });
+}

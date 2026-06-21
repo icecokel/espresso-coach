@@ -1,26 +1,68 @@
-export const colors = {
-  background: "#f3f6f8",
-  backgroundAlt: "#e8eef2",
-  surface: "#ffffff",
-  surfaceAlt: "#eef6f4",
-  surfaceStrong: "#d6dee3",
-  border: "#d6dee3",
-  borderDark: "#27313d",
-  text: "#162027",
-  textInverse: "#f7f9f6",
-  muted: "#68747d",
-  mutedInverse: "#c9d3d8",
-  primary: "#0b6f78",
-  primaryDark: "#095b63",
-  accent: "#2454d6",
-  accentDark: "#1d45b7",
-  steel: "#7fa7b5",
-  ink: "#111820",
-  inkSoft: "#22303a",
-  keep: "#2f7d5c",
-  danger: "#c24135",
-  warning: "#b7791f",
+import { useColorScheme } from "react-native";
+
+export const lightColors = {
+  background: "#f3f4f1",
+  backgroundAlt: "#e9efe9",
+  surface: "#fcfcf8",
+  surfaceAlt: "#e9efe9",
+  surfaceStrong: "#d6dad3",
+  border: "#d6dad3",
+  borderDark: "#303832",
+  text: "#151a17",
+  textInverse: "#fbfcf8",
+  muted: "#6d746e",
+  mutedInverse: "#d7ded8",
+  primary: "#174d43",
+  primaryDark: "#103a33",
+  accent: "#8c7a54",
+  accentDark: "#6d5c3d",
+  steel: "#7b8b80",
+  ink: "#111614",
+  inkSoft: "#26302b",
+  keep: "#2f6a50",
+  danger: "#aa4a3d",
+  warning: "#8c6b35",
 };
+
+export const darkColors: AppColors = {
+  background: "#111614",
+  backgroundAlt: "#1a211d",
+  surface: "#171d1a",
+  surfaceAlt: "#202922",
+  surfaceStrong: "#303832",
+  border: "#303832",
+  borderDark: "#48524b",
+  text: "#f1f3ee",
+  textInverse: "#fbfcf8",
+  muted: "#a0aaa2",
+  mutedInverse: "#cfd8d1",
+  primary: "#5f9a88",
+  primaryDark: "#3f7869",
+  accent: "#c2a56a",
+  accentDark: "#a58c59",
+  steel: "#82948a",
+  ink: "#0b0f0d",
+  inkSoft: "#202822",
+  keep: "#80b89b",
+  danger: "#df8a7e",
+  warning: "#d0ad68",
+};
+
+export type AppColors = typeof lightColors;
+export type AppTheme = {
+  colors: AppColors;
+  colorScheme: "light" | "dark";
+};
+
+export const colors = lightColors;
+
+export function useAppTheme(): AppTheme {
+  const colorScheme = useColorScheme() === "dark" ? "dark" : "light";
+  return {
+    colors: colorScheme === "dark" ? darkColors : lightColors,
+    colorScheme,
+  };
+}
 
 export const spacing = {
   xs: 6,

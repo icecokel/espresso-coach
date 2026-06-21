@@ -3,9 +3,18 @@ import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { BeanSession, ShotRecord } from "../../domain/types";
 import { repository } from "../repository";
-import { colors, layout, radius, spacing, typography } from "../theme";
+import {
+  layout,
+  radius,
+  spacing,
+  typography,
+  useAppTheme,
+  type AppColors,
+} from "../theme";
 
 export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
+  const { colors } = useAppTheme();
+  const styles = createStyles(colors);
   const [session, setSession] = useState<BeanSession | null>(null);
   const [shots, setShots] = useState<ShotRecord[]>([]);
 
@@ -45,13 +54,19 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
       </View>
 
       <View style={styles.summaryStrip}>
-        <SummaryItem label="최근 샷" value={latestShot ? `${latestShot.shotNumber}` : "-"} />
+        <SummaryItem
+          label="최근 샷"
+          styles={styles}
+          value={latestShot ? `${latestShot.shotNumber}` : "-"}
+        />
         <SummaryItem
           label="평균 비율"
+          styles={styles}
           value={shots.length ? `1:${averageRatio(shots).toFixed(1)}` : "-"}
         />
         <SummaryItem
           label="마지막 추천"
+          styles={styles}
           value={
             latestShot
               ? formatActionVariable(latestShot.recommendation.primary.variable)
@@ -92,7 +107,15 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
   );
 }
 
-function SummaryItem({ label, value }: { label: string; value: string }) {
+function SummaryItem({
+  label,
+  styles,
+  value,
+}: {
+  label: string;
+  styles: SessionDetailStyles;
+  value: string;
+}) {
   return (
     <View style={styles.summaryItem}>
       <Text selectable style={styles.summaryValue}>
@@ -125,7 +148,10 @@ function formatActionVariable(variable: string): string {
   return labels[variable] ?? variable;
 }
 
-const styles = StyleSheet.create({
+type SessionDetailStyles = ReturnType<typeof createStyles>;
+
+function createStyles(colors: AppColors) {
+  return StyleSheet.create({
   screen: {
     flex: 1,
     backgroundColor: colors.background,
@@ -173,7 +199,7 @@ const styles = StyleSheet.create({
   },
   kicker: {
     ...typography.strongMeta,
-    color: colors.primary,
+    color: colors.accent,
     textTransform: "uppercase",
   },
   title: {
@@ -220,7 +246,10 @@ const styles = StyleSheet.create({
     borderRadius: 6,
     paddingHorizontal: spacing.sm,
     paddingVertical: spacing.xs,
+    borderColor: colors.border,
+    borderWidth: 1,
     color: colors.primaryDark,
-    backgroundColor: colors.surfaceAlt,
+    backgroundColor: colors.backgroundAlt,
   },
-});
+  });
+}
