@@ -5,7 +5,11 @@
     "scheme": "espresso-coach",
     "version": "0.1.0",
     "orientation": "portrait",
+    "icon": "./assets/espresso-coach-logo.png",
     "userInterfaceStyle": "automatic",
+    "web": {
+      "favicon": "./assets/espresso-coach-logo.png"
+    },
     "plugins": [
       "expo-router",
       "expo-sqlite",

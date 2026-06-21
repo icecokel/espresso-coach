@@ -1,7 +1,21 @@
 import { Link, router } from "expo-router";
+import {
+  ChevronRight,
+  ClipboardList,
+  Coffee,
+  Droplets,
+  History,
+  Scale,
+  SlidersHorizontal,
+  Timer,
+  WandSparkles,
+} from "lucide-react-native";
+import { Sparkle } from "phosphor-react-native/src/icons/Sparkle";
+import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import {
   Pressable,
+  Image,
   ScrollView,
   StyleSheet,
   Text,
@@ -181,13 +195,22 @@ export function QuickDiagnosisScreen() {
         contentContainerStyle={styles.content}
       >
       <View style={styles.topBar}>
-        <View>
+        <View style={styles.titleGroup}>
+          <View style={styles.brandIcon}>
+            <Image
+              accessibilityIgnoresInvertColors
+              source={require("../../../assets/espresso-coach-logo.png")}
+              style={styles.brandImage}
+            />
+          </View>
+          <View style={styles.titleTextGroup}>
           <Text selectable style={styles.screenTitle}>
             빠른 진단
           </Text>
           <Text selectable style={styles.screenSubtitle}>
             이번 샷을 기록하고 다음 조정을 받기
           </Text>
+          </View>
         </View>
         <Text selectable style={styles.shotBadge}>
           샷 {String(nextShotNumber).padStart(2, "0")}
@@ -195,25 +218,39 @@ export function QuickDiagnosisScreen() {
       </View>
 
       <View style={styles.statusStrip}>
-        <Text selectable style={styles.statusItem}>
-          {activeSession?.name ?? "새 원두 세션"}
-        </Text>
-        <Text selectable style={styles.statusItem}>
-          최근 기록 {recentShots.length}
-        </Text>
-        <Text selectable style={styles.statusItem}>
-          추천은 1개만
-        </Text>
+        <View style={styles.statusItem}>
+          <Coffee color={colors.muted} size={14} strokeWidth={1.8} />
+          <Text selectable style={styles.statusItemText}>
+            {activeSession?.name ?? "새 원두 세션"}
+          </Text>
+        </View>
+        <View style={styles.statusItem}>
+          <History color={colors.muted} size={14} strokeWidth={1.8} />
+          <Text selectable style={styles.statusItemText}>
+            최근 기록 {recentShots.length}
+          </Text>
+        </View>
+        <View style={styles.statusItem}>
+          <Sparkle color={colors.accent} size={14} weight="fill" />
+          <Text selectable style={styles.statusItemText}>
+            추천은 1개만
+          </Text>
+        </View>
       </View>
 
       <View style={styles.form}>
         <View style={styles.sectionHeader}>
-          <Text selectable style={styles.sectionKicker}>
-            필수 입력
-          </Text>
-          <Text selectable style={styles.sectionTitle}>
-            추출값
-          </Text>
+          <View style={styles.sectionIcon}>
+            <ClipboardList color={colors.accent} size={18} strokeWidth={2} />
+          </View>
+          <View>
+            <Text selectable style={styles.sectionKicker}>
+              필수 입력
+            </Text>
+            <Text selectable style={styles.sectionTitle}>
+              추출값
+            </Text>
+          </View>
         </View>
         <InputField
           colors={colors}
@@ -229,6 +266,7 @@ export function QuickDiagnosisScreen() {
         <View style={styles.numberGrid}>
           <InputField
             colors={colors}
+            icon={<Scale color={colors.accent} size={14} strokeWidth={2} />}
             label="도징량"
             styles={styles}
             value={form.doseGrams}
@@ -239,6 +277,7 @@ export function QuickDiagnosisScreen() {
           />
           <InputField
             colors={colors}
+            icon={<Droplets color={colors.accent} size={14} strokeWidth={2} />}
             label="추출량"
             styles={styles}
             value={form.yieldGrams}
@@ -249,6 +288,7 @@ export function QuickDiagnosisScreen() {
           />
           <InputField
             colors={colors}
+            icon={<Timer color={colors.accent} size={14} strokeWidth={2} />}
             label="시간"
             styles={styles}
             value={form.brewSeconds}
@@ -262,12 +302,17 @@ export function QuickDiagnosisScreen() {
 
       <View style={styles.form}>
         <View style={styles.sectionHeader}>
-          <Text selectable style={styles.sectionKicker}>
-            선택 관찰
-          </Text>
-          <Text selectable style={styles.sectionTitle}>
-            관찰
-          </Text>
+          <View style={styles.sectionIcon}>
+            <SlidersHorizontal color={colors.accent} size={18} strokeWidth={2} />
+          </View>
+          <View>
+            <Text selectable style={styles.sectionKicker}>
+              선택 관찰
+            </Text>
+            <Text selectable style={styles.sectionTitle}>
+              관찰
+            </Text>
+          </View>
         </View>
         <InputField
           colors={colors}
@@ -404,18 +449,26 @@ export function QuickDiagnosisScreen() {
 
       <View style={styles.history}>
         <View style={styles.sectionHeader}>
-          <Text selectable style={styles.sectionKicker}>
-            기록
-          </Text>
-          <Text selectable style={styles.sectionTitle}>
-            최근 샷
-          </Text>
+          <View style={styles.sectionIcon}>
+            <History color={colors.accent} size={18} strokeWidth={2} />
+          </View>
+          <View>
+            <Text selectable style={styles.sectionKicker}>
+              기록
+            </Text>
+            <Text selectable style={styles.sectionTitle}>
+              최근 샷
+            </Text>
+          </View>
         </View>
         <Link href="/sessions" asChild>
           <Pressable accessibilityRole="link" style={styles.textAction}>
-            <Text selectable style={styles.secondaryButtonText}>
-              전체 세션 보기
-            </Text>
+            <View style={styles.textActionContent}>
+              <Text selectable style={styles.secondaryButtonText}>
+                전체 세션 보기
+              </Text>
+              <ChevronRight color={colors.primary} size={16} strokeWidth={2.1} />
+            </View>
           </Pressable>
         </Link>
         {recentShots.length === 0 ? (
@@ -462,6 +515,7 @@ export function QuickDiagnosisScreen() {
           style={[styles.primaryButton, isSubmitting && styles.primaryButtonDisabled]}
           onPress={handleSubmit}
         >
+          <WandSparkles color={colors.textInverse} size={19} strokeWidth={2.2} />
           <Text selectable style={styles.primaryButtonText}>
             {isSubmitting ? "저장 중" : "추천 받기"}
           </Text>
@@ -473,6 +527,7 @@ export function QuickDiagnosisScreen() {
 
 function InputField({
   colors,
+  icon,
   label,
   styles,
   value,
@@ -483,6 +538,7 @@ function InputField({
   error,
 }: {
   colors: AppColors;
+  icon?: ReactNode;
   label: string;
   styles: QuickDiagnosisStyles;
   value: string;
@@ -494,9 +550,12 @@ function InputField({
 }) {
   return (
     <View style={styles.field}>
-      <Text selectable style={styles.label}>
-        {label}
-      </Text>
+      <View style={styles.fieldLabelRow}>
+        {icon}
+        <Text selectable style={styles.label}>
+          {label}
+        </Text>
+      </View>
       <View style={styles.inputRow}>
         <TextInput
           value={value}
@@ -584,6 +643,29 @@ function createStyles(colors: AppColors) {
     justifyContent: "space-between",
     gap: spacing.md,
   },
+  titleGroup: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  titleTextGroup: {
+    flex: 1,
+    gap: 2,
+  },
+  brandIcon: {
+    width: 36,
+    height: 36,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
+    borderRadius: radius.sm,
+    backgroundColor: colors.surface,
+  },
+  brandImage: {
+    width: "100%",
+    height: "100%",
+  },
   screenTitle: {
     ...typography.screenTitle,
     color: colors.text,
@@ -614,6 +696,11 @@ function createStyles(colors: AppColors) {
     backgroundColor: colors.surface,
   },
   statusItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
+  statusItemText: {
     ...typography.strongMeta,
     color: colors.muted,
   },
@@ -626,7 +713,19 @@ function createStyles(colors: AppColors) {
     backgroundColor: colors.surface,
   },
   sectionHeader: {
-    gap: 2,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  sectionIcon: {
+    width: 34,
+    height: 34,
+    alignItems: "center",
+    justifyContent: "center",
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    backgroundColor: colors.backgroundAlt,
   },
   sectionKicker: {
     ...typography.strongMeta,
@@ -636,6 +735,11 @@ function createStyles(colors: AppColors) {
     gap: spacing.xs,
     flex: 1,
     minWidth: 0,
+  },
+  fieldLabelRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
   },
   label: {
     ...typography.label,
@@ -711,6 +815,8 @@ function createStyles(colors: AppColors) {
     color: colors.textInverse,
   },
   primaryButton: {
+    flexDirection: "row",
+    gap: spacing.sm,
     minHeight: 56,
     alignItems: "center",
     justifyContent: "center",
@@ -740,6 +846,11 @@ function createStyles(colors: AppColors) {
   textAction: {
     minHeight: layout.minTouchSize,
     justifyContent: "center",
+  },
+  textActionContent: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
   },
   secondaryButtonText: {
     ...typography.label,
