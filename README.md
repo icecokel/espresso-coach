@@ -22,6 +22,26 @@ MVP는 **원두별 에스프레소 다이얼링 코치**입니다.
 - 우선순위형 추천: 여러 후보를 보여주되 실제 조정은 한 번에 하나만 권장
 - 기본 모드와 고급 모드 분리
 
+## Development
+
+MVP 구현은 로그인 없는 local-first Expo/React Native app입니다.
+
+```bash
+npm install
+npm run start
+```
+
+검증 명령:
+
+```bash
+npm run lint
+npm test
+npm exec expo-doctor
+npx expo export --platform web
+```
+
+최근 점검 기준 `npm run lint`, `npm test`, `npm exec expo-doctor`, `npm audit`, `npx expo export --platform web`는 통과합니다. web target은 현재 production web app이 아니라 로컬 smoke test와 번들 검증용 target입니다. 실기기 고유 동작과 설치 앱 동작은 Expo Go 또는 EAS preview build로 추가 확인해야 합니다.
+
 ## Planning Documents
 
 - [Agent Handoff Prompt](docs/agent-handoff-prompt.md): 다른 에이전트가 이 프로젝트를 이어받기 위한 프롬프트
@@ -29,6 +49,7 @@ MVP는 **원두별 에스프레소 다이얼링 코치**입니다.
 - [Product Brief](docs/planning/product-brief.md): 현재까지 합의된 제품 정의
 - [MVP Scope](docs/planning/mvp-scope.md): MVP 포함/제외 범위
 - [MVP Pre-Implementation Roadmap](docs/planning/mvp-pre-implementation-roadmap.md): 기획 산출물 완료 상태와 다음 구현 순서
+- [Project Improvement Priority](docs/planning/project-improvement-priority.md): 현재 프로젝트 개선 항목의 3단계 우선순위
 - [Open Questions](docs/planning/open-questions.md): 기존 open question의 확정 상태와 남은 질문
 - [Competitive Research](docs/planning/competitive-research.md): 유사 앱/서비스 조사와 차별화 방향
 - [Competitive Feature and Feedback Research](docs/planning/competitive-feature-feedback.md): 경쟁 앱 기능, 평가, 유저 불편 포인트
@@ -50,8 +71,10 @@ MVP는 **원두별 에스프레소 다이얼링 코치**입니다.
 - [Derived Output Data](docs/planning/data-derived-output.md): 맛 태그, 맛 패턴, 추천 결과 데이터
 - [Data Examples and Scope](docs/planning/data-examples-and-scope.md): 데이터 예시와 저장 범위
 - [MVP Implementation Stack](docs/planning/mvp-implementation-stack.md): 로그인 없는 local-first React/TypeScript web app 구현 스택
+- [React Native Migration Plan](docs/planning/react-native-migration-plan.md): Expo/React Native 앱으로 전환하기 위한 작업 계획
+- [Verification Status](docs/planning/verification-status.md): headless 검증 결과와 남은 실기기/EAS 검증 범위
 - [Ideas](docs/ideas/README.md): 검토 중인 제품 아이디어와 실험 후보
 
 ## Current Stage
 
-현재는 MVP 구현을 시작할 수 있도록 **제품, 데이터, 추천, 화면, 스택 계약을 확정한 상태**입니다.
+현재는 Expo/React Native MVP 앱의 기본 구현을 완료했고, MVP 제품 흐름 보강과 실기기/EAS preview build 검증을 앞둔 상태입니다.
