@@ -40,7 +40,7 @@ npm exec expo-doctor
 npx expo export --platform web
 ```
 
-현재 자동화 가능한 headless 검증은 통과했습니다. 실기기 고유 동작과 설치 앱 동작은 Expo Go 또는 EAS preview build로 추가 확인해야 합니다.
+최근 점검 기준 `npm run lint`, `npm test`, `npm exec expo-doctor`, `npm audit`, `npx expo export --platform web`는 통과합니다. web target은 현재 production web app이 아니라 로컬 smoke test와 번들 검증용 target입니다. 실기기 고유 동작과 설치 앱 동작은 Expo Go 또는 EAS preview build로 추가 확인해야 합니다.
 
 ## Planning Documents
 
@@ -49,6 +49,7 @@ npx expo export --platform web
 - [Product Brief](docs/planning/product-brief.md): 현재까지 합의된 제품 정의
 - [MVP Scope](docs/planning/mvp-scope.md): MVP 포함/제외 범위
 - [MVP Pre-Implementation Roadmap](docs/planning/mvp-pre-implementation-roadmap.md): 기획 산출물 완료 상태와 다음 구현 순서
+- [Project Improvement Priority](docs/planning/project-improvement-priority.md): 현재 프로젝트 개선 항목의 3단계 우선순위
 - [Open Questions](docs/planning/open-questions.md): 기존 open question의 확정 상태와 남은 질문
 - [Competitive Research](docs/planning/competitive-research.md): 유사 앱/서비스 조사와 차별화 방향
 - [Competitive Feature and Feedback Research](docs/planning/competitive-feature-feedback.md): 경쟁 앱 기능, 평가, 유저 불편 포인트
@@ -76,4 +77,4 @@ npx expo export --platform web
 
 ## Current Stage
 
-현재는 Expo/React Native MVP 앱의 기본 구현과 headless 검증을 완료했고, 실기기 검증과 EAS preview build 검증을 앞둔 상태입니다.
+현재는 Expo/React Native MVP 앱의 기본 구현을 완료했고, MVP 제품 흐름 보강과 실기기/EAS preview build 검증을 앞둔 상태입니다.

@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { BeanSession, ShotRecord } from "../../domain/types";
+import { formatActionVariable } from "../formatters";
 import { repository } from "../repository";
 import {
   layout,
@@ -20,24 +21,76 @@ import {
   type AppColors,
 } from "../theme";
 
+type DetailState = "loading" | "ready" | "not-found" | "error";
+
 export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
   const [session, setSession] = useState<BeanSession | null>(null);
   const [shots, setShots] = useState<ShotRecord[]>([]);
+  const [detailState, setDetailState] = useState<DetailState>(
+    sessionId ? "loading" : "not-found",
+  );
 
   useEffect(() => {
     if (!sessionId) {
+      setSession(null);
+      setShots([]);
+      setDetailState("not-found");
       return;
     }
-    void Promise.all([
-      repository.getSession(sessionId),
-      repository.listShots(sessionId),
-    ]).then(([nextSession, nextShots]) => {
-      setSession(nextSession ?? null);
-      setShots(nextShots);
-    });
+
+    let isActive = true;
+    setDetailState("loading");
+    void (async () => {
+      try {
+        const nextSession = await repository.getSession(sessionId);
+        if (!isActive) {
+          return;
+        }
+        if (!nextSession) {
+          setSession(null);
+          setShots([]);
+          setDetailState("not-found");
+          return;
+        }
+        const nextShots = await repository.listShots(sessionId);
+        if (!isActive) {
+          return;
+        }
+        setSession(nextSession);
+        setShots(nextShots);
+        setDetailState("ready");
+      } catch {
+        if (isActive) {
+          setSession(null);
+          setShots([]);
+          setDetailState("error");
+        }
+      }
+    })();
+
+    return () => {
+      isActive = false;
+    };
   }, [sessionId]);
+
+  if (detailState === "loading") {
+    return <StatePanel styles={styles} message="세션 기록을 불러오는 중입니다." />;
+  }
+
+  if (detailState === "error") {
+    return (
+      <StatePanel
+        styles={styles}
+        message="세션 기록을 불러오지 못했습니다. 다시 열어주세요."
+      />
+    );
+  }
+
+  if (detailState === "not-found" || !session) {
+    return <StatePanel styles={styles} message="세션 기록을 찾을 수 없습니다." />;
+  }
 
   const latestShot = shots[shots.length - 1];
 
@@ -57,7 +110,7 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
             세션
           </Text>
           <Text selectable style={styles.title}>
-            {session?.name ?? "세션 기록"}
+            {session.name}
           </Text>
           </View>
         </View>
@@ -94,38 +147,58 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
         />
       </View>
 
-      {shots.map((shot) => (
-        <Link
-          href={{ pathname: "/shot/[shotId]", params: { shotId: shot.id } }}
-          asChild
-          key={shot.id}
-        >
-          <Pressable style={styles.shotCard}>
-            <View style={styles.shotIndex}>
-              <Text selectable style={styles.shotIndexText}>
-                {String(shot.shotNumber).padStart(2, "0")}
-              </Text>
-            </View>
-            <View style={styles.shotBody}>
-              <Text selectable style={styles.shotTitle}>
-                {shot.extraction.tasteDescription}
-              </Text>
-              <Text selectable style={styles.mutedText}>
-                1:{shot.extraction.brewRatio.toFixed(1)} ·{" "}
-                {shot.extraction.brewSeconds}s · {shot.extraction.doseGrams}g
-                → {shot.extraction.yieldGrams}g
-              </Text>
-              <Text selectable style={styles.shotAction}>
-                {formatActionVariable(shot.recommendation.primary.variable)}
-              </Text>
-            </View>
-            <View style={styles.rowAction}>
-              <ChevronRight color={colors.muted} size={18} strokeWidth={2} />
-            </View>
-          </Pressable>
-        </Link>
-      ))}
+      {shots.length === 0 ? (
+        <View style={styles.emptyPanel}>
+          <Text selectable style={styles.mutedText}>
+            이 세션에는 아직 저장된 샷이 없습니다.
+          </Text>
+        </View>
+      ) : (
+        shots.map((shot) => (
+          <Link
+            href={{ pathname: "/shot/[shotId]", params: { shotId: shot.id } }}
+            asChild
+            key={shot.id}
+          >
+            <Pressable style={styles.shotCard}>
+              <View style={styles.shotIndex}>
+                <Text selectable style={styles.shotIndexText}>
+                  {String(shot.shotNumber).padStart(2, "0")}
+                </Text>
+              </View>
+              <View style={styles.shotBody}>
+                <Text selectable style={styles.shotTitle}>
+                  {shot.extraction.tasteDescription}
+                </Text>
+                <Text selectable style={styles.mutedText}>
+                  1:{shot.extraction.brewRatio.toFixed(1)} ·{" "}
+                  {shot.extraction.brewSeconds}s · {shot.extraction.doseGrams}g
+                  → {shot.extraction.yieldGrams}g
+                </Text>
+                <Text selectable style={styles.shotAction}>
+                  {formatActionVariable(shot.recommendation.primary.variable)}
+                </Text>
+              </View>
+              <View style={styles.rowAction}>
+                <ChevronRight color={colors.muted} size={18} strokeWidth={2} />
+              </View>
+            </Pressable>
+          </Link>
+        ))
+      )}
     </ScrollView>
+  );
+}
+
+function StatePanel({ message, styles }: { message: string; styles: SessionDetailStyles }) {
+  return (
+    <View style={styles.center}>
+      <View style={styles.statePanel}>
+        <Text selectable style={styles.stateText}>
+          {message}
+        </Text>
+      </View>
+    </View>
   );
 }
 
@@ -161,20 +234,6 @@ function averageRatio(shots: ShotRecord[]): number {
   );
 }
 
-function formatActionVariable(variable: string): string {
-  const labels: Record<string, string> = {
-    grind_size: "분쇄도",
-    yield: "추출량",
-    dose: "도징량",
-    channeling_check: "채널링",
-    distribution: "분배",
-    tamping_consistency: "탬핑",
-    puck_prep: "퍽 준비",
-    no_change: "유지",
-  };
-  return labels[variable] ?? variable;
-}
-
 type SessionDetailStyles = ReturnType<typeof createStyles>;
 
 function createStyles(colors: AppColors) {
@@ -187,6 +246,24 @@ function createStyles(colors: AppColors) {
     gap: spacing.md,
     padding: layout.screenPadding,
     paddingBottom: layout.scrollBottomPadding,
+  },
+  center: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    padding: layout.screenPadding,
+    backgroundColor: colors.background,
+  },
+  statePanel: {
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
+  },
+  stateText: {
+    ...typography.body,
+    color: colors.muted,
   },
   header: {
     flexDirection: "row",
@@ -260,6 +337,13 @@ function createStyles(colors: AppColors) {
   shotCard: {
     flexDirection: "row",
     gap: spacing.md,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
+  },
+  emptyPanel: {
     borderColor: colors.border,
     borderRadius: radius.sm,
     borderWidth: 1,

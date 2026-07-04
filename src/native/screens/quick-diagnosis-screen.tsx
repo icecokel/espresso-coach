@@ -1,4 +1,4 @@
-import { Link, router } from "expo-router";
+import { Link, router, useLocalSearchParams } from "expo-router";
 import {
   ChevronRight,
   ClipboardList,
@@ -32,12 +32,19 @@ import { parseTasteDescription } from "../../domain/taste";
 import type {
   BeanSession,
   PrepObservationId,
+  RoastRange,
   ShotChange,
   ShotChangeDirection,
   ShotChangeVariable,
   ShotRecord,
 } from "../../domain/types";
 import { createAutoBeanSession } from "../../storage/repository";
+import {
+  formatActionVariable,
+  formatRoastRange,
+  formatTasteTagPreview,
+  roastRangeOptions,
+} from "../formatters";
 import { repository } from "../repository";
 import {
   layout,
@@ -59,6 +66,13 @@ interface FormState {
   changeDirection: ShotChangeDirection;
 }
 
+interface SessionFormState {
+  name: string;
+  beanName: string;
+  roaster: string;
+  roastRange: RoastRange;
+}
+
 const initialFormState: FormState = {
   tasteDescription: "",
   doseGrams: "",
@@ -68,6 +82,13 @@ const initialFormState: FormState = {
   prepObservations: [],
   changedVariable: "none",
   changeDirection: "unknown",
+};
+
+const initialSessionFormState: SessionFormState = {
+  name: "",
+  beanName: "",
+  roaster: "",
+  roastRange: "unknown",
 };
 
 const prepOptions: Array<{ id: PrepObservationId; label: string }> = [
@@ -84,29 +105,96 @@ const prepOptions: Array<{ id: PrepObservationId; label: string }> = [
 ];
 
 export function QuickDiagnosisScreen() {
+  const params = useLocalSearchParams<{ sessionId?: string | string[] }>();
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
   const [form, setForm] = useState<FormState>(initialFormState);
+  const [sessionForm, setSessionForm] = useState<SessionFormState>(
+    initialSessionFormState,
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | undefined>();
+  const [sessionError, setSessionError] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isSavingSession, setIsSavingSession] = useState(false);
+  const [sessions, setSessions] = useState<BeanSession[]>([]);
   const [activeSession, setActiveSession] = useState<BeanSession | null>(null);
   const [recentShots, setRecentShots] = useState<ShotRecord[]>([]);
   const nextShotNumber = recentShots.length + 1;
+  const tasteTagPreview = formatTasteTagPreview(
+    parseTasteDescription(form.tasteDescription).tasteTags,
+  );
 
   useEffect(() => {
-    void loadLatestSession();
-  }, []);
+    void loadSessions(getRouteSessionId(params.sessionId));
+  }, [params.sessionId]);
 
-  async function loadLatestSession() {
+  async function loadSessions(preferredSessionId?: string) {
     try {
-      const sessions = await repository.listSessions();
-      const session = sessions.find((item) => item.status === "active") ?? null;
+      const nextSessions = await repository.listSessions();
+      const session =
+        (preferredSessionId
+          ? nextSessions.find((item) => item.id === preferredSessionId)
+          : undefined) ??
+        nextSessions.find((item) => item.status === "active") ??
+        nextSessions[0] ??
+        null;
+      setSessions(nextSessions);
       setActiveSession(session);
+      setSessionForm(session ? formFromSession(session) : initialSessionFormState);
       setRecentShots(session ? await repository.listShots(session.id) : []);
     } catch {
       setSubmitError("세션 기록을 불러오지 못했습니다.");
     }
+  }
+
+  async function handleSelectSession(session: BeanSession) {
+    setActiveSession(session);
+    setSessionForm(formFromSession(session));
+    setSessionError(undefined);
+    try {
+      setRecentShots(await repository.listShots(session.id));
+    } catch {
+      setSessionError("선택한 세션의 샷 기록을 불러오지 못했습니다.");
+      setRecentShots([]);
+    }
+  }
+
+  async function handleSaveSession() {
+    if (isSavingSession) {
+      return;
+    }
+
+    setIsSavingSession(true);
+    setSessionError(undefined);
+    try {
+      const now = new Date().toISOString();
+      const patch = sessionPatchFromForm(sessionForm, now);
+      const savedSession = activeSession
+        ? await repository.updateSession(activeSession.id, patch)
+        : await repository.createSession({
+            ...createAutoBeanSession({ now, roastProfile: patch.roastProfile }),
+            name: patch.name,
+            beanName: patch.beanName,
+            roaster: patch.roaster,
+          });
+      const nextSessions = await repository.listSessions();
+      setSessions(nextSessions);
+      setActiveSession(savedSession);
+      setSessionForm(formFromSession(savedSession));
+      setRecentShots(await repository.listShots(savedSession.id));
+    } catch {
+      setSessionError("세션을 저장하지 못했습니다. 다시 시도해주세요.");
+    } finally {
+      setIsSavingSession(false);
+    }
+  }
+
+  function handleNewSessionDraft() {
+    setActiveSession(null);
+    setRecentShots([]);
+    setSessionError(undefined);
+    setSessionForm(initialSessionFormState);
   }
 
   async function handleSubmit() {
@@ -130,10 +218,7 @@ export function QuickDiagnosisScreen() {
     setIsSubmitting(true);
     try {
       const now = new Date().toISOString();
-      const session =
-        activeSession ??
-        (await repository.createSession(createAutoBeanSession({ now })));
-      const shotNumber = await repository.getNextShotNumber(session.id);
+      const session = await saveSessionForShot(now);
       const extraction = buildExtraction(requiredInput);
       const basicObservation = deriveBasicObservation({
         grindNote: form.grindNote,
@@ -151,10 +236,9 @@ export function QuickDiagnosisScreen() {
         tasteTags,
         tastePatterns,
       });
-      const savedShot = await repository.createShot({
+      const savedShot = await repository.createShotWithNextNumber({
         id: createId("shot"),
         sessionId: session.id,
-        shotNumber,
         extraction,
         basicObservation,
         advancedObservation: null,
@@ -168,6 +252,8 @@ export function QuickDiagnosisScreen() {
       });
 
       setActiveSession(session);
+      setSessionForm(formFromSession(session));
+      setSessions(await repository.listSessions());
       setRecentShots(await repository.listShots(session.id));
       setForm(initialFormState);
       router.push({ pathname: "/shot/[shotId]", params: { shotId: savedShot.id } });
@@ -185,6 +271,20 @@ export function QuickDiagnosisScreen() {
         ? current.prepObservations.filter((value) => value !== id)
         : [...current.prepObservations, id],
     }));
+  }
+
+  async function saveSessionForShot(now: string): Promise<BeanSession> {
+    const patch = sessionPatchFromForm(sessionForm, now);
+    if (activeSession) {
+      return repository.updateSession(activeSession.id, patch);
+    }
+
+    return repository.createSession({
+      ...createAutoBeanSession({ now, roastProfile: patch.roastProfile }),
+      name: patch.name,
+      beanName: patch.beanName,
+      roaster: patch.roaster,
+    });
   }
 
   return (
@@ -221,7 +321,7 @@ export function QuickDiagnosisScreen() {
         <View style={styles.statusItem}>
           <Coffee color={colors.muted} size={14} strokeWidth={1.8} />
           <Text selectable style={styles.statusItemText}>
-            {activeSession?.name ?? "새 원두 세션"}
+            {activeSession?.name ?? "새 세션 준비 중"}
           </Text>
         </View>
         <View style={styles.statusItem}>
@@ -235,6 +335,148 @@ export function QuickDiagnosisScreen() {
           <Text selectable style={styles.statusItemText}>
             추천은 1개만
           </Text>
+        </View>
+      </View>
+
+      <View style={styles.form}>
+        <View style={styles.sectionHeader}>
+          <View style={styles.sectionIcon}>
+            <Coffee color={colors.accent} size={18} strokeWidth={2} />
+          </View>
+          <View>
+            <Text selectable style={styles.sectionKicker}>
+              현재 세션
+            </Text>
+            <Text selectable style={styles.sectionTitle}>
+              원두 정보
+            </Text>
+          </View>
+        </View>
+
+        <View style={styles.sessionPicker}>
+          {sessions.length === 0 ? (
+            <Text selectable style={styles.mutedText}>
+              저장된 세션이 없습니다. 아래 정보를 저장하거나 바로 첫 샷을 기록하세요.
+            </Text>
+          ) : (
+            sessions.map((session) => (
+              <Pressable
+                accessibilityRole="button"
+                key={session.id}
+                onPress={() => void handleSelectSession(session)}
+                style={[
+                  styles.sessionOption,
+                  activeSession?.id === session.id && styles.sessionOptionSelected,
+                ]}
+              >
+                <Text
+                  selectable
+                  style={[
+                    styles.sessionOptionText,
+                    activeSession?.id === session.id && styles.sessionOptionTextSelected,
+                  ]}
+                >
+                  {session.name}
+                </Text>
+                <Text
+                  selectable
+                  style={[
+                    styles.sessionOptionMeta,
+                    activeSession?.id === session.id && styles.sessionOptionTextSelected,
+                  ]}
+                >
+                  {formatRoastRange(session.roastProfile.range)}
+                </Text>
+              </Pressable>
+            ))
+          )}
+        </View>
+
+        <View style={styles.numberGrid}>
+          <InputField
+            colors={colors}
+            label="세션 이름"
+            styles={styles}
+            value={sessionForm.name}
+            onChangeText={(name) => setSessionForm({ ...sessionForm, name })}
+            placeholder="예: 과테말라 7월"
+          />
+          <InputField
+            colors={colors}
+            label="원두명"
+            styles={styles}
+            value={sessionForm.beanName}
+            onChangeText={(beanName) => setSessionForm({ ...sessionForm, beanName })}
+            placeholder="예: Guatemala Huehuetenango"
+          />
+          <InputField
+            colors={colors}
+            label="로스터"
+            styles={styles}
+            value={sessionForm.roaster}
+            onChangeText={(roaster) => setSessionForm({ ...sessionForm, roaster })}
+            placeholder="예: 동네 로스터리"
+          />
+        </View>
+
+        <View style={styles.group}>
+          <Text selectable style={styles.label}>
+            배전 범위
+          </Text>
+          <View style={styles.optionGrid}>
+            {roastRangeOptions.map((option) => (
+              <Pressable
+                accessibilityRole="button"
+                key={option.value}
+                onPress={() =>
+                  setSessionForm({ ...sessionForm, roastRange: option.value })
+                }
+                style={[
+                  styles.option,
+                  sessionForm.roastRange === option.value && styles.optionSelected,
+                ]}
+              >
+                <Text
+                  selectable
+                  style={[
+                    styles.optionText,
+                    sessionForm.roastRange === option.value &&
+                      styles.optionTextSelected,
+                  ]}
+                >
+                  {option.label}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+
+        {sessionError ? (
+          <Text selectable style={styles.submitError}>
+            {sessionError}
+          </Text>
+        ) : null}
+
+        <View style={styles.sessionActions}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleNewSessionDraft}
+            style={styles.secondaryButton}
+          >
+            <Text selectable style={styles.secondaryButtonText}>
+              새 세션
+            </Text>
+          </Pressable>
+          <Pressable
+            accessibilityRole="button"
+            disabled={isSavingSession}
+            onPress={handleSaveSession}
+            style={[styles.saveButton, isSavingSession && styles.primaryButtonDisabled]}
+          >
+            <Text selectable style={styles.saveButtonText}>
+              {isSavingSession ? "저장 중" : activeSession ? "세션 수정" : "세션 생성"}
+            </Text>
+          </Pressable>
         </View>
       </View>
 
@@ -262,6 +504,16 @@ export function QuickDiagnosisScreen() {
           multiline
           error={errors.tasteDescription}
         />
+        {tasteTagPreview ? (
+          <View style={styles.tastePreview}>
+            <Text selectable style={styles.tastePreviewLabel}>
+              맛 해석
+            </Text>
+            <Text selectable style={styles.tastePreviewText}>
+              {tasteTagPreview}
+            </Text>
+          </View>
+        ) : null}
 
         <View style={styles.numberGrid}>
           <InputField
@@ -401,7 +653,7 @@ export function QuickDiagnosisScreen() {
         {form.changedVariable !== "none" && form.changedVariable !== "unknown" ? (
           <View style={styles.group}>
             <Text selectable style={styles.label}>
-              변경 방향
+              변경 방향/결과
             </Text>
             <View style={styles.optionGrid}>
               {[
@@ -410,6 +662,8 @@ export function QuickDiagnosisScreen() {
                 ["coarser", "더 굵게"],
                 ["increase", "늘림"],
                 ["decrease", "줄임"],
+                ["improved", "개선됨"],
+                ["worse", "나빠짐"],
                 ["changed", "바꿈"],
               ].map(([value, label]) => (
                 <Pressable
@@ -600,25 +854,54 @@ function buildShotChanges(form: FormState): ShotChange[] {
   ];
 }
 
+function getRouteSessionId(value: string | string[] | undefined): string | undefined {
+  if (Array.isArray(value)) {
+    return value[0];
+  }
+  return value;
+}
+
+function formFromSession(session: BeanSession): SessionFormState {
+  return {
+    name: session.name,
+    beanName: session.beanName ?? "",
+    roaster: session.roaster ?? "",
+    roastRange: session.roastProfile.range,
+  };
+}
+
+function sessionPatchFromForm(form: SessionFormState, now: string) {
+  return {
+    name: formatSessionName(form.name, now),
+    beanName: optionalText(form.beanName),
+    roaster: optionalText(form.roaster),
+    roastProfile: buildUserSelectedRoastProfile(form.roastRange),
+  };
+}
+
+function formatSessionName(value: string, now: string): string {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : `새 원두 세션 ${now.slice(0, 10)}`;
+}
+
+function optionalText(value: string): string | undefined {
+  const trimmed = value.trim();
+  return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function buildUserSelectedRoastProfile(range: RoastRange) {
+  return {
+    range,
+    confidence: range === "unknown" ? "low" : "medium",
+    source: "user_selected",
+  } as const;
+}
+
 function createId(prefix: "shot"): string {
   if (globalThis.crypto?.randomUUID) {
     return `${prefix}_${globalThis.crypto.randomUUID()}`;
   }
   return `${prefix}_${Date.now().toString(36)}`;
-}
-
-function formatActionVariable(variable: string): string {
-  const labels: Record<string, string> = {
-    grind_size: "분쇄도",
-    yield: "추출량",
-    dose: "도징량",
-    channeling_check: "채널링",
-    distribution: "분배",
-    tamping_consistency: "탬핑",
-    puck_prep: "퍽 준비",
-    no_change: "유지",
-  };
-  return labels[variable] ?? variable;
 }
 
 type QuickDiagnosisStyles = ReturnType<typeof createStyles>;
@@ -704,6 +987,37 @@ function createStyles(colors: AppColors) {
     ...typography.strongMeta,
     color: colors.muted,
   },
+  sessionPicker: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  sessionOption: {
+    minHeight: layout.minTouchSize,
+    justifyContent: "center",
+    gap: 2,
+    borderColor: colors.surfaceStrong,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.surface,
+  },
+  sessionOptionSelected: {
+    borderColor: colors.primaryDark,
+    backgroundColor: colors.ink,
+  },
+  sessionOptionText: {
+    ...typography.label,
+    color: colors.text,
+  },
+  sessionOptionMeta: {
+    ...typography.meta,
+    color: colors.muted,
+  },
+  sessionOptionTextSelected: {
+    color: colors.textInverse,
+  },
   form: {
     gap: spacing.lg,
     borderColor: colors.border,
@@ -775,6 +1089,23 @@ function createStyles(colors: AppColors) {
   errorText: {
     ...typography.label,
     color: colors.danger,
+  },
+  tastePreview: {
+    gap: spacing.xs,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    backgroundColor: colors.backgroundAlt,
+  },
+  tastePreviewLabel: {
+    ...typography.strongMeta,
+    color: colors.muted,
+  },
+  tastePreviewText: {
+    ...typography.body,
+    color: colors.text,
   },
   submitError: {
     ...typography.label,
@@ -855,6 +1186,34 @@ function createStyles(colors: AppColors) {
   secondaryButtonText: {
     ...typography.label,
     color: colors.primary,
+  },
+  sessionActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  secondaryButton: {
+    minHeight: layout.minTouchSize,
+    alignItems: "center",
+    justifyContent: "center",
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+  },
+  saveButton: {
+    flex: 1,
+    minHeight: layout.minTouchSize,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.primaryDark,
+  },
+  saveButtonText: {
+    ...typography.button,
+    color: colors.textInverse,
   },
   shotCard: {
     flexDirection: "row",

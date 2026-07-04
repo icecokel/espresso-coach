@@ -48,6 +48,11 @@ function shot(sessionId: string, shotNumber: number): ShotRecord {
   };
 }
 
+function shotDraft(sessionId: string, id: string): Omit<ShotRecord, "shotNumber"> {
+  const { shotNumber: _shotNumber, ...draft } = shot(sessionId, 0);
+  return { ...draft, id };
+}
+
 describe("EspressoCoachRepository", () => {
   it("creates, updates, archives, and lists sessions", async () => {
     const repository = createMemoryRepository({ now: () => now });
@@ -80,6 +85,25 @@ describe("EspressoCoachRepository", () => {
     await expect(repository.getShot(firstShot.id)).resolves.toEqual(firstShot);
     await expect(repository.listShots(session.id)).resolves.toEqual([firstShot]);
     await expect(repository.getNextShotNumber(session.id)).resolves.toBe(2);
+  });
+
+  it("creates shots with the next shot number at the repository boundary", async () => {
+    const repository = createMemoryRepository();
+    const session = await repository.createSession(createAutoBeanSession({ now }));
+
+    const firstShot = await repository.createShotWithNextNumber(
+      shotDraft(session.id, "shot_1"),
+    );
+    const secondShot = await repository.createShotWithNextNumber(
+      shotDraft(session.id, "shot_2"),
+    );
+
+    expect(firstShot.shotNumber).toBe(1);
+    expect(secondShot.shotNumber).toBe(2);
+    await expect(repository.listShots(session.id)).resolves.toEqual([
+      firstShot,
+      secondShot,
+    ]);
   });
 
   it("rejects saved shots without a recommendation snapshot", async () => {

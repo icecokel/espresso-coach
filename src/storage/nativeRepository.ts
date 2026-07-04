@@ -26,6 +26,12 @@ export interface NativeRepositoryOptions extends RepositoryOptions {
   databaseName?: string;
 }
 
+interface DuplicateShotNumberRow {
+  session_id: string;
+  shot_number: number;
+  duplicateCount: number;
+}
+
 export function createNativeRepository(
   options: NativeRepositoryOptions = {},
 ): EspressoCoachRepository {
@@ -35,7 +41,16 @@ export function createNativeRepository(
 
   async function getDatabase(): Promise<SQLiteDatabase> {
     databasePromise ??= openDatabaseAsync(databaseName).then(async (database) => {
-      await database.execAsync(`
+      await initializeDatabase(database);
+      return database;
+    });
+    return databasePromise;
+  }
+
+  async function initializeDatabase(database: SQLiteDatabase): Promise<void> {
+    await database.execAsync(`
+        PRAGMA foreign_keys = ON;
+
         CREATE TABLE IF NOT EXISTS bean_sessions (
           id TEXT PRIMARY KEY NOT NULL,
           data TEXT NOT NULL,
@@ -49,15 +64,71 @@ export function createNativeRepository(
           shot_number INTEGER NOT NULL,
           data TEXT NOT NULL,
           pulled_at TEXT NOT NULL,
-          created_at TEXT NOT NULL
+          created_at TEXT NOT NULL,
+          FOREIGN KEY (session_id) REFERENCES bean_sessions (id) ON DELETE CASCADE
         );
+
+        CREATE TRIGGER IF NOT EXISTS shot_records_session_insert_fk
+        BEFORE INSERT ON shot_records
+        FOR EACH ROW
+        WHEN (SELECT id FROM bean_sessions WHERE id = NEW.session_id) IS NULL
+        BEGIN
+          SELECT RAISE(ABORT, 'shot_records.session_id references missing bean_sessions.id');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS shot_records_session_update_fk
+        BEFORE UPDATE OF session_id ON shot_records
+        FOR EACH ROW
+        WHEN (SELECT id FROM bean_sessions WHERE id = NEW.session_id) IS NULL
+        BEGIN
+          SELECT RAISE(ABORT, 'shot_records.session_id references missing bean_sessions.id');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS shot_records_session_shot_number_insert_unique
+        BEFORE INSERT ON shot_records
+        FOR EACH ROW
+        WHEN EXISTS (
+          SELECT 1
+            FROM shot_records
+           WHERE session_id = NEW.session_id
+             AND shot_number = NEW.shot_number
+        )
+        BEGIN
+          SELECT RAISE(ABORT, 'shot_records.session_id and shot_number must be unique');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS shot_records_session_shot_number_update_unique
+        BEFORE UPDATE OF session_id, shot_number ON shot_records
+        FOR EACH ROW
+        WHEN EXISTS (
+          SELECT 1
+            FROM shot_records
+           WHERE session_id = NEW.session_id
+             AND shot_number = NEW.shot_number
+             AND id <> OLD.id
+        )
+        BEGIN
+          SELECT RAISE(ABORT, 'shot_records.session_id and shot_number must be unique');
+        END;
 
         CREATE INDEX IF NOT EXISTS shot_records_session_id_idx
           ON shot_records (session_id, shot_number);
       `);
-      return database;
-    });
-    return databasePromise;
+
+    const duplicateShotNumber = await database.getFirstAsync<DuplicateShotNumberRow>(`
+        SELECT session_id, shot_number, COUNT(*) AS duplicateCount
+          FROM shot_records
+         GROUP BY session_id, shot_number
+        HAVING COUNT(*) > 1
+         LIMIT 1
+      `);
+
+    if (!duplicateShotNumber) {
+      await database.execAsync(`
+        CREATE UNIQUE INDEX IF NOT EXISTS shot_records_session_shot_number_unique_idx
+          ON shot_records (session_id, shot_number);
+      `);
+    }
   }
 
   async function getRequiredSession(sessionId: string): Promise<BeanSession> {
@@ -68,11 +139,24 @@ export function createNativeRepository(
     return session;
   }
 
+  async function updateStoredSession(session: BeanSession): Promise<void> {
+    const database = await getDatabase();
+    await database.runAsync(
+      `UPDATE bean_sessions
+          SET data = ?, status = ?, updated_at = ?
+        WHERE id = ?`,
+      JSON.stringify(session),
+      session.status,
+      session.updatedAt,
+      session.id,
+    );
+  }
+
   const repository: EspressoCoachRepository = {
     async createSession(session) {
       const database = await getDatabase();
       await database.runAsync(
-        `INSERT OR REPLACE INTO bean_sessions (id, data, status, updated_at)
+        `INSERT INTO bean_sessions (id, data, status, updated_at)
          VALUES (?, ?, ?, ?)`,
         session.id,
         JSON.stringify(session),
@@ -89,7 +173,7 @@ export function createNativeRepository(
         ...patch,
         updatedAt: now(),
       };
-      await this.createSession(updated);
+      await updateStoredSession(updated);
       return clone(updated);
     },
 
@@ -100,7 +184,7 @@ export function createNativeRepository(
         status: "archived",
         updatedAt: now(),
       };
-      await this.createSession(archived);
+      await updateStoredSession(archived);
       return clone(archived);
     },
 
@@ -126,7 +210,7 @@ export function createNativeRepository(
       await getRequiredSession(shot.sessionId);
       const database = await getDatabase();
       await database.runAsync(
-        `INSERT OR REPLACE INTO shot_records
+        `INSERT INTO shot_records
           (id, session_id, shot_number, data, pulled_at, created_at)
          VALUES (?, ?, ?, ?, ?, ?)`,
         shot.id,
@@ -137,6 +221,50 @@ export function createNativeRepository(
         shot.createdAt,
       );
       return clone(shot);
+    },
+
+    async createShotWithNextNumber(shot) {
+      const database = await getDatabase();
+      let savedShot: ShotRecord | undefined;
+
+      await database.withExclusiveTransactionAsync(async (transaction) => {
+        const sessionRow = await transaction.getFirstAsync<StoredSessionRow>(
+          `SELECT * FROM bean_sessions WHERE id = ?`,
+          shot.sessionId,
+        );
+        if (!sessionRow) {
+          throw new Error(`BeanSession not found: ${shot.sessionId}`);
+        }
+
+        const row = await transaction.getFirstAsync<{ nextShotNumber: number }>(
+          `SELECT COALESCE(MAX(shot_number), 0) + 1 AS nextShotNumber
+             FROM shot_records
+            WHERE session_id = ?`,
+          shot.sessionId,
+        );
+        const nextShot: ShotRecord = {
+          ...shot,
+          shotNumber: row?.nextShotNumber ?? 1,
+        };
+        validateShotForStorage(nextShot);
+        await transaction.runAsync(
+          `INSERT INTO shot_records
+            (id, session_id, shot_number, data, pulled_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          nextShot.id,
+          nextShot.sessionId,
+          nextShot.shotNumber,
+          JSON.stringify(nextShot),
+          nextShot.pulledAt,
+          nextShot.createdAt,
+        );
+        savedShot = clone(nextShot);
+      });
+
+      if (!savedShot) {
+        throw new Error("ShotRecord was not created");
+      }
+      return savedShot;
     },
 
     async getShot(shotId) {

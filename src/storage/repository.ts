@@ -1,6 +1,8 @@
 import { createUnknownRoastProfile } from "../domain/defaults";
 import type { BeanSession, DateTimeString, RoastProfile, ShotRecord } from "../domain/types";
 
+export type ShotRecordDraft = Omit<ShotRecord, "shotNumber">;
+
 export interface EspressoCoachRepository {
   createSession(session: BeanSession): Promise<BeanSession>;
   updateSession(
@@ -13,6 +15,7 @@ export interface EspressoCoachRepository {
   listSessions(): Promise<BeanSession[]>;
   getSession(sessionId: string): Promise<BeanSession | undefined>;
   createShot(shot: ShotRecord): Promise<ShotRecord>;
+  createShotWithNextNumber(shot: ShotRecordDraft): Promise<ShotRecord>;
   getShot(shotId: string): Promise<ShotRecord | undefined>;
   listShots(sessionId: string): Promise<ShotRecord[]>;
   getNextShotNumber(sessionId: string): Promise<number>;
@@ -96,6 +99,15 @@ export function createMemoryRepository(
       const stored = clone(shot);
       shots.set(stored.id, stored);
       return clone(stored);
+    },
+
+    async createShotWithNextNumber(shot) {
+      getRequiredSession(sessions, shot.sessionId);
+      const nextShotNumber =
+        [...shots.values()]
+          .filter((item) => item.sessionId === shot.sessionId)
+          .reduce((max, item) => Math.max(max, item.shotNumber), 0) + 1;
+      return this.createShot({ ...shot, shotNumber: nextShotNumber });
     },
 
     async getShot(shotId) {

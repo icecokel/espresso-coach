@@ -16,7 +16,13 @@ import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { ShotRecord } from "../../domain/types";
+import {
+  formatActionDirection,
+  formatActionVariable,
+  formatKeepVariables,
+} from "../formatters";
 import { repository } from "../repository";
+import { buildNextShotHref } from "../shotRoutes";
 import {
   layout,
   radius,
@@ -26,23 +32,78 @@ import {
   type AppColors,
 } from "../theme";
 
+type DetailState = "loading" | "ready" | "not-found" | "error";
+
 export function ShotDetailScreen({ shotId }: { shotId?: string }) {
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
   const [shot, setShot] = useState<ShotRecord | null>(null);
+  const [detailState, setDetailState] = useState<DetailState>(
+    shotId ? "loading" : "not-found",
+  );
 
   useEffect(() => {
-    if (shotId) {
-      void repository.getShot(shotId).then((value) => setShot(value ?? null));
+    if (!shotId) {
+      setShot(null);
+      setDetailState("not-found");
+      return;
     }
+
+    let isActive = true;
+    setDetailState("loading");
+    void repository
+      .getShot(shotId)
+      .then((value) => {
+        if (!isActive) {
+          return;
+        }
+        setShot(value ?? null);
+        setDetailState(value ? "ready" : "not-found");
+      })
+      .catch(() => {
+        if (isActive) {
+          setShot(null);
+          setDetailState("error");
+        }
+      });
+
+    return () => {
+      isActive = false;
+    };
   }, [shotId]);
 
-  if (!shot) {
+  if (detailState === "loading") {
     return (
       <View style={styles.center}>
-        <Text selectable style={styles.mutedText}>
-          샷 기록을 찾을 수 없습니다.
-        </Text>
+        <View style={styles.statePanel}>
+          <Text selectable style={styles.mutedText}>
+            샷 기록을 불러오는 중입니다.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (detailState === "error") {
+    return (
+      <View style={styles.center}>
+        <View style={styles.statePanel}>
+          <Text selectable style={styles.mutedText}>
+            샷 기록을 불러오지 못했습니다. 다시 열어주세요.
+          </Text>
+        </View>
+      </View>
+    );
+  }
+
+  if (detailState === "not-found" || !shot) {
+    return (
+      <View style={styles.center}>
+        <View style={styles.statePanel}>
+          <Text selectable style={styles.mutedText}>
+            샷 기록을 찾을 수 없습니다.
+          </Text>
+        </View>
       </View>
     );
   }
@@ -70,7 +131,7 @@ export function ShotDetailScreen({ shotId }: { shotId?: string }) {
             {formatActionDirection(shot.recommendation.primary.direction)}
           </Text>
         </View>
-        <Link href="/" asChild>
+        <Link href={buildNextShotHref(shot.sessionId)} asChild>
           <Pressable style={styles.nextShotButton}>
             <ArrowRight color={colors.textInverse} size={18} strokeWidth={2.2} />
             <Text selectable style={styles.nextShotButtonText}>
@@ -141,50 +202,6 @@ export function ShotDetailScreen({ shotId }: { shotId?: string }) {
       </View>
     </ScrollView>
   );
-}
-
-function formatKeepVariables(variables: string[]): string {
-  if (variables.length === 0) {
-    return "이번 샷에서는 추가로 유지할 변수가 없습니다.";
-  }
-
-  const labels: Record<string, string> = {
-    grind_size: "분쇄도",
-    dose: "도징량",
-    yield: "추출량",
-    tamping_consistency: "탬핑 방식",
-    distribution: "레벨링/분배",
-    puck_prep: "퍽 준비 과정",
-    advanced_condition: "고급 조건",
-  };
-
-  return `${variables.map((variable) => labels[variable] ?? variable).join(", ")}은 그대로 두세요.`;
-}
-
-function formatActionVariable(variable: string): string {
-  const labels: Record<string, string> = {
-    grind_size: "분쇄도",
-    yield: "추출량",
-    dose: "도징량",
-    channeling_check: "채널링",
-    distribution: "분배",
-    tamping_consistency: "탬핑",
-    puck_prep: "퍽 준비",
-    no_change: "유지",
-  };
-  return labels[variable] ?? variable;
-}
-
-function formatActionDirection(direction: string): string {
-  const labels: Record<string, string> = {
-    finer: "더 곱게",
-    coarser: "더 굵게",
-    increase: "늘리기",
-    decrease: "줄이기",
-    keep: "그대로",
-    check: "확인",
-  };
-  return labels[direction] ?? direction;
 }
 
 function Section({
@@ -261,7 +278,15 @@ function createStyles(colors: AppColors) {
     flex: 1,
     alignItems: "center",
     justifyContent: "center",
+    padding: layout.screenPadding,
     backgroundColor: colors.background,
+  },
+  statePanel: {
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    padding: spacing.lg,
+    backgroundColor: colors.surface,
   },
   resultCard: {
     gap: spacing.md,
