@@ -1,6 +1,6 @@
 # Verification Status
 
-Last updated: 2026-07-04
+Last updated: 2026-07-06
 
 ## Scope
 
@@ -14,16 +14,16 @@ Last updated: 2026-07-04
 
 ## Current Result
 
-2026-07-04 기준 headless 검증은 통과했다.
+2026-07-06 기준 headless 검증은 통과했다. Local web runtime smoke test는 2026-07-04 Playwright 기록을 유지하며, 이번 문서/데드코드 정리에서는 재실행하지 않았다.
 
-| Check | Command | Result |
-| --- | --- | --- |
-| TypeScript compile | `npm run lint` | Pass |
-| Unit tests | `npm test` | Pass, 8 test files / 36 tests |
-| Expo project health | `npm exec expo-doctor` | Pass, 18/18 checks |
-| Dependency audit | `npm audit` | Pass, 0 vulnerabilities |
-| Web production bundle | `npx expo export --platform web` | Pass |
-| Local web runtime smoke test | `npx --yes serve@latest -s dist -l 4173` + Playwright | Pass |
+| Check | Command | Result | Last confirmed |
+| --- | --- | --- | --- |
+| TypeScript compile | `npm run lint` | Pass | 2026-07-06 |
+| Unit tests | `npm test` | Pass, 8 test files / 36 tests | 2026-07-06 |
+| Expo project health | `npm exec expo-doctor` | Pass, 18/18 checks | 2026-07-06 |
+| Dependency audit | `npm audit` | Pass, 0 vulnerabilities | 2026-07-06 |
+| Web production bundle | `npx expo export --platform web` | Pass | 2026-07-06 |
+| Local web runtime smoke test | `npx --yes serve@latest -s dist -l 4173` + Playwright | Pass | 2026-07-04 |
 
 검증 중 생성된 `dist/` 산출물은 임시 결과로 확인 후 삭제했다.
 
@@ -38,7 +38,7 @@ Headless 검증으로 확인된 영역:
 - native formatter 단위 테스트
 - shot detail next-shot route helper 단위 테스트
 - native SQLite repository DDL/insert/update/transaction behavior mock 단위 테스트
-- 빠른 진단 저장 경로가 repository의 next shot number 생성 API를 사용하는지 여부
+- 빠른 진단 저장 경로가 repository의 `createShotWithNextNumber` boundary를 사용하는지 여부
 - Expo SDK dependency 호환성
 - dependency audit vulnerability 0건
 - app config 기본 유효성
@@ -115,7 +115,7 @@ Headless 검증으로 확인된 영역:
 | Xcode developer directory | `xcode-select -p` | `/Library/Developer/CommandLineTools` |
 | Android device connection | `adb devices` | No connected devices |
 
-따라서 Expo Go, simulator/emulator, EAS preview artifact 생성/설치 검증은 이 로컬 세션에서 완료하지 못했다. iOS simulator 검증은 full Xcode `simctl` 접근 또는 booted simulator가 필요하고, EAS build 검증은 EAS login 또는 project token이 필요하다.
+따라서 Expo Go, simulator/emulator, EAS preview artifact 생성/설치 검증은 이 로컬 세션에서 완료하지 못했다. iOS simulator 검증은 full Xcode `simctl` 접근 또는 booted simulator가 필요하고, EAS build 검증은 EAS login 또는 project token이 필요하다. 이 범위는 다음 페이즈에서 진행한다.
 
 ## Recommended Next Verification Order
 
@@ -145,7 +145,7 @@ Expo Go에서 먼저 아래 시나리오를 확인한다.
 
 ## EAS Preview Build Checklist
 
-EAS 설정이 추가되면 preview build에서 아래 항목을 확인한다.
+다음 페이즈에서 EAS preview build를 실행할 때 아래 항목을 확인한다.
 
 - 설치 가능한 Android artifact 생성
 - 설치 가능한 iOS artifact 또는 TestFlight build 생성

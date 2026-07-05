@@ -1,5 +1,5 @@
 import { openDatabaseAsync, type SQLiteDatabase } from "expo-sqlite";
-import type { BeanSession, DateTimeString, ShotRecord } from "../domain/types";
+import type { BeanSession, ShotRecord } from "../domain/types";
 import {
   type EspressoCoachRepository,
   type RepositoryOptions,
@@ -285,18 +285,6 @@ export function createNativeRepository(
       );
       return rows.map((row) => parseStoredJson<ShotRecord>(row.data));
     },
-
-    async getNextShotNumber(sessionId) {
-      await getRequiredSession(sessionId);
-      const database = await getDatabase();
-      const row = await database.getFirstAsync<{ nextShotNumber: number }>(
-        `SELECT COALESCE(MAX(shot_number), 0) + 1 AS nextShotNumber
-           FROM shot_records
-          WHERE session_id = ?`,
-        sessionId,
-      );
-      return row?.nextShotNumber ?? 1;
-    },
   };
 
   return repository;
@@ -309,5 +297,3 @@ function parseStoredJson<T>(value: string): T {
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
-
-export type NativeDateTimeString = DateTimeString;

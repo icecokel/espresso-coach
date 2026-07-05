@@ -77,4 +77,4 @@ npx expo export --platform web
 
 ## Current Stage
 
-현재는 Expo/React Native MVP 앱의 기본 구현을 완료했고, MVP 제품 흐름 보강과 실기기/EAS preview build 검증을 앞둔 상태입니다.
+현재는 Expo/React Native MVP 앱의 기본 구현과 제품 흐름 보강을 `main`에 반영한 상태입니다. 실기기/EAS preview build 검증, 고급 모드, 추천 피드백 루프 같은 남은 작업은 다음 페이즈에서 진행합니다.

@@ -18,7 +18,6 @@ export interface EspressoCoachRepository {
   createShotWithNextNumber(shot: ShotRecordDraft): Promise<ShotRecord>;
   getShot(shotId: string): Promise<ShotRecord | undefined>;
   listShots(sessionId: string): Promise<ShotRecord[]>;
-  getNextShotNumber(sessionId: string): Promise<number>;
 }
 
 export interface RepositoryOptions {
@@ -121,11 +120,6 @@ export function createMemoryRepository(
         .filter((shot) => shot.sessionId === sessionId)
         .sort((left, right) => left.shotNumber - right.shotNumber)
         .map(clone);
-    },
-
-    async getNextShotNumber(sessionId) {
-      const sessionShots = await this.listShots(sessionId);
-      return sessionShots.length + 1;
     },
   };
 }

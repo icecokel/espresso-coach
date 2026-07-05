@@ -84,7 +84,6 @@ describe("EspressoCoachRepository", () => {
     expect(firstShot.recommendation.primary.variable).toBe("no_change");
     await expect(repository.getShot(firstShot.id)).resolves.toEqual(firstShot);
     await expect(repository.listShots(session.id)).resolves.toEqual([firstShot]);
-    await expect(repository.getNextShotNumber(session.id)).resolves.toBe(2);
   });
 
   it("creates shots with the next shot number at the repository boundary", async () => {

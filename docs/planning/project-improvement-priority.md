@@ -1,6 +1,6 @@
 # Project Improvement Priority
 
-Last reviewed: 2026-07-04
+Last reviewed: 2026-07-06
 
 ## Purpose
 
@@ -38,13 +38,27 @@ Last reviewed: 2026-07-04
 - persistent web product가 필요해지면 별도 IndexedDB adapter 또는 backend 저장소를 설계한다.
 - 빠른 진단 저장 경로는 `createShotWithNextNumber`를 사용해 shot number 할당과 저장을 repository boundary로 묶는다. native runtime의 실제 transaction 동작은 아직 Expo Go 또는 설치 앱에서 확인하지 못했다.
 
+## Current Phase Boundary
+
+이번 페이즈에서 완료로 보는 범위:
+
+- Expo/React Native MVP 앱 기본 구현, 세션 생성/선택/편집, 배전 범위 입력 연결
+- 빠른 진단 맛 해석 preview, 같은 세션 다음 샷 기록, action/variable label formatter 공통화
+- SQLite FK/unique/index/transaction boundary, native repository mock 단위 검증, local web E2E 기록
+
+다음 페이즈로 이관하는 범위:
+
+- Expo Go, simulator/emulator, EAS preview build 실기기 검증
+- 고급 모드 UI, 추천 피드백 루프, 실험 결과 모델
+- persistent web product 저장소, export/sync, session archive UX
+
 ## Priority Model
 
 | Stage | Name | Goal | When to start |
 | --- | --- | --- | --- |
 | 1 | 안정화와 검증 정합성 | 현재 구현이 검증 기준을 다시 통과하게 만든다. | 즉시 |
-| 2 | MVP 제품 완성도 | 문서상 핵심 MVP와 실제 앱 흐름의 차이를 줄인다. | Stage 1 완료 후 |
-| 3 | 확장성과 운영 준비 | 저장소, 테스트, build, 장기 유지보수 기반을 강화한다. | MVP smoke test 후 |
+| 2 | MVP 제품 완성도 | 문서상 핵심 MVP와 실제 앱 흐름의 차이를 줄인다. | 이번 페이즈 코드 반영 완료, 실기기 확인은 다음 페이즈 |
+| 3 | 확장성과 운영 준비 | 저장소, 테스트, build, 장기 유지보수 기반을 강화한다. | 저장소 기반 보강 완료, preview build 운영은 다음 페이즈 |
 
 ## Stage 1. 안정화와 검증 정합성
 
@@ -85,15 +99,15 @@ Last reviewed: 2026-07-04
 
 ### Work Items
 
-| Priority | Work | Why | Output |
+| Priority | Work | Status | Output |
 | --- | --- | --- | --- |
-| P0 | 원두 세션 생성/선택 흐름 추가 | 현재 빠른 진단은 활성 세션이 없으면 자동 세션만 만든다. | 세션 생성, 선택, 현재 세션 표시, 이름 수정 |
-| P0 | 배전 범위 입력 UI 연결 | MVP core에 배전 범위 기록이 포함되어 있다. | `RoastProfile.range`, `confidence`, `source`를 세션에 저장하는 기본 UI |
-| P1 | 빠른 진단 화면의 optional field 정리 | 분쇄도, 퍽/흐름, 직전 변경값은 MVP 추천 품질에 직접 영향을 준다. | 필드 label, default, 저장 mapping 재확인 |
-| P1 | detail 화면 loading/empty/error 상태 분리 | 현재 로딩 전에도 "기록을 찾을 수 없음"으로 보일 수 있다. | 샷 상세, 세션 상세의 loading, not found, load error UI |
-| P1 | keyboard/safe area/CTA 동작 점검 | 모바일 입력 중심 앱이라 실기기 사용성이 중요하다. | Expo Go smoke test에서 입력 필드와 하단 CTA 확인 |
-| P2 | action/variable label formatter 공통화 | 같은 label map이 여러 화면에 반복된다. | `src/native/formatters.ts` 같은 shared formatter |
-| P2 | web persistence 방향 유지 | 현재 web target은 제품용 저장소가 아니라 smoke test와 bundle 검증용이다. | web product 전환 시 IndexedDB adapter 또는 backend 저장소를 별도 설계 |
+| P0 | 원두 세션 생성/선택 흐름 추가 | Done | 세션 생성, 선택, 현재 세션 표시, 이름/원두 정보 수정 |
+| P0 | 배전 범위 입력 UI 연결 | Done | `RoastProfile.range`, `confidence`, `source`를 세션에 저장하는 기본 UI |
+| P1 | 빠른 진단 화면의 optional field 정리 | Done | 분쇄도, 퍽/흐름, 직전 변경값의 label, default, 저장 mapping 정리 |
+| P1 | detail 화면 loading/empty/error 상태 분리 | Done | 샷 상세, 세션 상세의 loading, not found, load error UI |
+| P1 | keyboard/safe area/CTA 동작 점검 | Next phase | Expo Go smoke test에서 입력 필드와 하단 CTA 확인 |
+| P2 | action/variable label formatter 공통화 | Done | `src/native/formatters.ts` shared formatter |
+| P2 | web persistence 방향 유지 | Next phase | web product 전환 시 IndexedDB adapter 또는 backend 저장소를 별도 설계 |
 
 ### Completion Criteria
 
@@ -101,7 +115,7 @@ Last reviewed: 2026-07-04
 - 빠른 진단으로 생성된 샷이 올바른 세션에 저장된다.
 - 배전 범위가 추천 input의 `session.roastProfile`로 연결된다.
 - 샷 상세와 세션 상세에서 loading, empty, error가 구분된다.
-- Expo Go에서 필수 입력, 추천 생성, 저장, 재실행 후 기록 확인이 smoke test로 확인된다.
+- Expo Go에서 필수 입력, 추천 생성, 저장, 재실행 후 기록 확인은 다음 페이즈 smoke test에서 확인한다.
 
 ### Notes
 
@@ -117,21 +131,21 @@ MVP를 반복 개발하고 preview build로 검증할 수 있도록 저장소, �
 
 ### Work Items
 
-| Priority | Work | Why | Output |
+| Priority | Work | Status | Output |
 | --- | --- | --- | --- |
-| P0 | SQLite schema 무결성 보강 | 현재 schema는 foreign key와 shot number unique constraint가 없다. | `session_id` FK, `(session_id, shot_number)` unique, 필요한 index |
-| P0 | shot 생성 transaction 적용 | shot number 계산과 저장이 분리되면 race나 중복 여지가 있다. | `createShotWithNextNumber` repository API와 native exclusive transaction 경계 유지 |
-| P1 | native repository 검증 보강 | memory repository 테스트만으로 SQLite behavior를 보장하기 어렵다. | native adapter 테스트 또는 Expo runtime smoke test checklist |
-| P1 | EAS preview build 설정 | 설치 앱 기준의 persistence, icon, OS theme 검증이 필요하다. | `eas.json`, preview profile, Android/iOS preview checklist |
-| P1 | 실기기 검증 결과 문서화 | headless 검증으로는 safe area, font, keyboard, SQLite 재실행 유지가 보이지 않는다. | Expo Go / simulator / EAS preview 검증 기록 |
-| P2 | docs 정리: web-era 문서와 RN 문서 구분 | 일부 planning 문서는 초기 web app 기준을 유지한다. | web-era decision과 current RN implementation을 구분하는 문서 상태 |
-| P2 | 추천 품질 regression case 확대 | 실제 사용자 표현이 늘면 rule-based parser 회귀 위험이 커진다. | taste parser와 recommendation 테스트 케이스 추가 |
+| P0 | SQLite schema 무결성 보강 | Done | `session_id` FK, `(session_id, shot_number)` unique/index, 호환 trigger |
+| P0 | shot 생성 transaction 적용 | Done | `createShotWithNextNumber` repository API와 native exclusive transaction 경계 |
+| P1 | native repository 검증 보강 | Done | native adapter mock 단위 테스트 |
+| P1 | EAS preview build 설정 | Next phase | `eas.json`, preview profile, Android/iOS preview checklist |
+| P1 | 실기기 검증 결과 문서화 | Next phase | Expo Go / simulator / EAS preview 검증 기록 |
+| P2 | docs 정리: web-era 문서와 RN 문서 구분 | In progress | web-era decision과 current RN implementation을 구분하는 문서 상태 |
+| P2 | 추천 품질 regression case 확대 | Next phase | taste parser와 recommendation 테스트 케이스 추가 |
 
 ### Completion Criteria
 
 - SQLite 저장소가 세션-샷 관계와 shot number 중복을 DB 레벨에서 방어한다.
-- EAS preview build로 설치 가능한 artifact를 생성한다.
-- 앱 재실행 후 저장된 shot history 유지가 실제 기기 또는 simulator에서 확인된다.
+- EAS preview build로 설치 가능한 artifact를 생성하는 작업은 다음 페이즈에서 진행한다.
+- 앱 재실행 후 저장된 shot history 유지는 다음 페이즈에서 실제 기기 또는 simulator로 확인한다.
 - verification 문서가 headless, Expo Go, EAS preview 결과를 분리해서 기록한다.
 - web app 기준 planning 문서와 current React Native 기준 문서가 충돌하지 않는다.
 
@@ -142,15 +156,13 @@ MVP를 반복 개발하고 preview build로 검증할 수 있도록 저장소, �
 
 ## Recommended Execution Order
 
-1. Expo patch dependency 정합성 수정
-2. 최신 검증 결과 문서 갱신
-3. 원두 세션 생성/선택/편집 흐름 구현
-4. 배전 범위 입력을 세션 데이터와 추천 input에 연결
-5. detail 화면 loading/empty/error 상태 분리
-6. Expo Go smoke test 수행
-7. SQLite schema와 transaction 경계 보강
-8. EAS preview build 설정
-9. 실기기/EAS 검증 결과 문서화
+1. Expo Go smoke test 수행
+2. iOS simulator 또는 Android emulator smoke test 수행
+3. EAS login 또는 project token 준비
+4. EAS preview build 설정
+5. Android/iOS preview artifact 설치 테스트
+6. 실기기/EAS 검증 결과 문서화
+7. 고급 모드, 추천 피드백 루프, 실험 결과 모델 설계
 
 ## Related Documents
 
