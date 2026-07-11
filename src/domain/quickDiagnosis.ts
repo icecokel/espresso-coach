@@ -22,6 +22,11 @@ export interface QuickDiagnosisValidationResult {
   errors: Partial<Record<keyof QuickDiagnosisRequiredInput, string>>;
 }
 
+export interface SubmissionLock {
+  acquire(): boolean;
+  release(): void;
+}
+
 export type InputWarningConfirmation = Pick<
   QuickDiagnosisRequiredInput,
   "doseGrams" | "yieldGrams" | "brewSeconds"
@@ -48,6 +53,23 @@ export function validateQuickDiagnosisInput(
   return {
     ok: Object.keys(errors).length === 0,
     errors,
+  };
+}
+
+export function createSubmissionLock(): SubmissionLock {
+  let isLocked = false;
+
+  return {
+    acquire() {
+      if (isLocked) {
+        return false;
+      }
+      isLocked = true;
+      return true;
+    },
+    release() {
+      isLocked = false;
+    },
   };
 }
 

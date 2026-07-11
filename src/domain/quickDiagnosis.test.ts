@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildExtraction,
   createInputWarningConfirmation,
+  createSubmissionLock,
   deriveBasicObservation,
   shouldInvalidateInputWarningConfirmation,
   shouldRequestInputWarningConfirmation,
@@ -88,11 +89,28 @@ describe("quick diagnosis helpers", () => {
       shouldInvalidateInputWarningConfirmation("doseGrams", "4", "5"),
     ).toBe(true);
     expect(
+      shouldInvalidateInputWarningConfirmation("yieldGrams", "8", "9"),
+    ).toBe(true);
+    expect(
+      shouldInvalidateInputWarningConfirmation("brewSeconds", "8", "9"),
+    ).toBe(true);
+    expect(
       shouldInvalidateInputWarningConfirmation("yieldGrams", "8", "8"),
     ).toBe(false);
     expect(
       shouldInvalidateInputWarningConfirmation("tasteDescription", "시다", "쓰다"),
     ).toBe(false);
+  });
+
+  it("allows only one synchronous submission lock acquisition until released", () => {
+    const lock = createSubmissionLock();
+
+    expect(lock.acquire()).toBe(true);
+    expect(lock.acquire()).toBe(false);
+
+    lock.release();
+
+    expect(lock.acquire()).toBe(true);
   });
 
   it("derives prep summary from observed flow and puck issues", () => {

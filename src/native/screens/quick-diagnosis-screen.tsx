@@ -12,7 +12,7 @@ import {
 } from "lucide-react-native";
 import { Sparkle } from "phosphor-react-native/src/icons/Sparkle";
 import type { ReactNode } from "react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Pressable,
   Image,
@@ -26,6 +26,7 @@ import { buildRecommendation } from "../../domain/recommendation";
 import {
   buildExtraction,
   createInputWarningConfirmation,
+  createSubmissionLock,
   deriveBasicObservation,
   shouldInvalidateInputWarningConfirmation,
   shouldRequestInputWarningConfirmation,
@@ -127,6 +128,7 @@ export function QuickDiagnosisScreen() {
   >([]);
   const [sessionError, setSessionError] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionLockRef = useRef(createSubmissionLock());
   const [isSavingSession, setIsSavingSession] = useState(false);
   const [sessions, setSessions] = useState<BeanSession[]>([]);
   const [activeSession, setActiveSession] = useState<BeanSession | null>(null);
@@ -211,39 +213,39 @@ export function QuickDiagnosisScreen() {
   async function handleSubmit(
     confirmationOverride?: InputWarningConfirmation,
   ) {
-    if (isSubmitting) {
+    if (!submissionLockRef.current.acquire()) {
       return;
     }
 
-    setSubmitError(undefined);
-    const requiredInput = {
-      tasteDescription: form.tasteDescription,
-      doseGrams: parseNumber(form.doseGrams),
-      yieldGrams: parseNumber(form.yieldGrams),
-      brewSeconds: parseNumber(form.brewSeconds),
-    };
-    const validation = validateQuickDiagnosisInput(requiredInput);
-    setErrors(validation.errors);
-    if (!validation.ok) {
-      return;
-    }
-
-    const extraction = buildExtraction(requiredInput);
-    const confirmation = confirmationOverride ?? inputWarningConfirmation;
-    if (
-      shouldRequestInputWarningConfirmation({
-        input: requiredInput,
-        inputWarnings: extraction.inputWarnings,
-        confirmation,
-      })
-    ) {
-      setPendingInputWarnings(extraction.inputWarnings);
-      return;
-    }
-
-    setPendingInputWarnings([]);
-    setIsSubmitting(true);
     try {
+      setSubmitError(undefined);
+      const requiredInput = {
+        tasteDescription: form.tasteDescription,
+        doseGrams: parseNumber(form.doseGrams),
+        yieldGrams: parseNumber(form.yieldGrams),
+        brewSeconds: parseNumber(form.brewSeconds),
+      };
+      const validation = validateQuickDiagnosisInput(requiredInput);
+      setErrors(validation.errors);
+      if (!validation.ok) {
+        return;
+      }
+
+      const extraction = buildExtraction(requiredInput);
+      const confirmation = confirmationOverride ?? inputWarningConfirmation;
+      if (
+        shouldRequestInputWarningConfirmation({
+          input: requiredInput,
+          inputWarnings: extraction.inputWarnings,
+          confirmation,
+        })
+      ) {
+        setPendingInputWarnings(extraction.inputWarnings);
+        return;
+      }
+
+      setPendingInputWarnings([]);
+      setIsSubmitting(true);
       const now = new Date().toISOString();
       const session = await saveSessionForShot(now);
       const basicObservation = deriveBasicObservation({
@@ -287,6 +289,7 @@ export function QuickDiagnosisScreen() {
       setSubmitError("추천을 저장하지 못했습니다. 다시 시도해주세요.");
     } finally {
       setIsSubmitting(false);
+      submissionLockRef.current.release();
     }
   }
 
