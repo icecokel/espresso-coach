@@ -13,7 +13,8 @@
     "ios": "expo start --ios",
     "android": "expo start --android",
     "lint": "tsc --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "test:e2e": "rm -rf dist output/playwright && expo export --platform web --output-dir dist && playwright test; status=$?; rm -rf dist output/playwright; exit $status"
   },
   "dependencies": {
     "expo": "~56.0.15",
@@ -34,8 +35,10 @@
     "react-native-web": "^0.21.2"
   },
   "devDependencies": {
+    "@playwright/test": "^1.61.1",
     "@types/node": "^24.0.0",
     "@types/react": "~19.2.2",
+    "serve": "^14.2.6",
     "typescript": "~6.0.3",
     "vitest": "^3.2.0"
   },
