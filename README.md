@@ -37,10 +37,11 @@ npm run start
 npm run lint
 npm test
 npm exec expo-doctor
+npm audit
 npx expo export --platform web
 ```
 
-최근 점검 기준 `npm run lint`, `npm test`, `npm exec expo-doctor`, `npm audit`, `npx expo export --platform web`는 통과합니다. web target은 현재 production web app이 아니라 로컬 smoke test와 번들 검증용 target입니다. 실기기 고유 동작과 설치 앱 동작은 Expo Go 또는 EAS preview build로 추가 확인해야 합니다.
+2026-07-11 재검증 기준 `npm run lint`, `npm test`, `npm exec expo-doctor`, `npm audit`, `npx expo export --platform web`는 통과합니다. web target은 현재 production web app이 아니라 로컬 smoke test와 번들 검증용 target입니다. 실기기 고유 동작과 설치 앱 동작은 Expo Go 또는 EAS preview build로 추가 확인해야 합니다.
 
 ## Planning Documents
 

@@ -1,6 +1,6 @@
 # Verification Status
 
-Last updated: 2026-07-06
+Last updated: 2026-07-11
 
 ## Scope
 
@@ -14,15 +14,15 @@ Last updated: 2026-07-06
 
 ## Current Result
 
-2026-07-06 기준 headless 검증은 통과했다. Local web runtime smoke test는 2026-07-04 Playwright 기록을 유지하며, 이번 문서/데드코드 정리에서는 재실행하지 않았다.
+2026-07-11 기준 headless 검증은 통과했다. `expo` 56.0.15와 `expo-router` 56.2.14로 SDK 56 patch dependency를 맞췄다. Local web runtime smoke test는 2026-07-04 Playwright 기록을 유지하며, 이번 SDK 정합성 갱신에서는 재실행하지 않았다.
 
 | Check | Command | Result | Last confirmed |
 | --- | --- | --- | --- |
-| TypeScript compile | `npm run lint` | Pass | 2026-07-06 |
-| Unit tests | `npm test` | Pass, 8 test files / 36 tests | 2026-07-06 |
-| Expo project health | `npm exec expo-doctor` | Pass, 18/18 checks | 2026-07-06 |
-| Dependency audit | `npm audit` | Pass, 0 vulnerabilities | 2026-07-06 |
-| Web production bundle | `npx expo export --platform web` | Pass | 2026-07-06 |
+| TypeScript compile | `npm run lint` | Pass | 2026-07-11 |
+| Unit tests | `npm test` | Pass, 8 test files / 36 tests | 2026-07-11 |
+| Expo project health | `npm exec expo-doctor` | Pass, 18/18 checks | 2026-07-11 |
+| Dependency audit | `npm audit` | Pass, 0 vulnerabilities | 2026-07-11 |
+| Web production bundle | `npx expo export --platform web` | Pass | 2026-07-11 |
 | Local web runtime smoke test | `npx --yes serve@latest -s dist -l 4173` + Playwright | Pass | 2026-07-04 |
 
 검증 중 생성된 `dist/` 산출물은 임시 결과로 확인 후 삭제했다.

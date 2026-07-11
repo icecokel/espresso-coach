@@ -1,6 +1,6 @@
 # Project Improvement Priority
 
-Last reviewed: 2026-07-06
+Last reviewed: 2026-07-11
 
 ## Purpose
 
@@ -18,7 +18,7 @@ Last reviewed: 2026-07-06
 | `npm test` | Pass | 8 test files / 36 tests |
 | `npx expo export --platform web` | Pass | web bundle 생성 가능 |
 | Local web runtime smoke test | Pass | Playwright로 validation, 빠른 진단, 다중 샷, 세션 편집/선택, 모바일 viewport, not-found route 확인 |
-| `npm exec expo-doctor` | Pass | SDK 56 patch dependency 정합성 복구 |
+| `npm exec expo-doctor` | Pass, 18/18 checks | `expo` 56.0.15, `expo-router` 56.2.14 기준 SDK 56 patch dependency 정합성 확인 |
 | `npm audit` | Pass | `uuid`, `esbuild` advisory는 npm overrides와 lockfile update로 해소 |
 
 현재 앱의 강점:
