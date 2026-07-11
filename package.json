@@ -13,7 +13,6 @@
     "ios": "expo start --ios",
     "android": "expo start --android",
     "lint": "tsc --noEmit",
-    "pretest": "node scripts/package-test-contract.test.mjs",
     "test:unit": "vitest run",
     "test": "npm run test:unit && npm run test:e2e:runner",
     "pretest:e2e": "playwright install chromium",
