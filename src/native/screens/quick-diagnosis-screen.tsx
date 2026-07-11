@@ -25,12 +25,17 @@ import {
 import { buildRecommendation } from "../../domain/recommendation";
 import {
   buildExtraction,
+  createInputWarningConfirmation,
   deriveBasicObservation,
+  shouldInvalidateInputWarningConfirmation,
+  shouldRequestInputWarningConfirmation,
+  type InputWarningConfirmation,
   validateQuickDiagnosisInput,
 } from "../../domain/quickDiagnosis";
 import { parseTasteDescription } from "../../domain/taste";
 import type {
   BeanSession,
+  ExtractionInputWarningCode,
   PrepObservationId,
   RoastRange,
   ShotChange,
@@ -41,6 +46,7 @@ import type {
 import { createAutoBeanSession } from "../../storage/repository";
 import {
   formatActionVariable,
+  formatInputWarning,
   formatRoastRange,
   formatTasteTagPreview,
   roastRangeOptions,
@@ -114,6 +120,11 @@ export function QuickDiagnosisScreen() {
   );
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [submitError, setSubmitError] = useState<string | undefined>();
+  const [inputWarningConfirmation, setInputWarningConfirmation] =
+    useState<InputWarningConfirmation | null>(null);
+  const [pendingInputWarnings, setPendingInputWarnings] = useState<
+    ExtractionInputWarningCode[]
+  >([]);
   const [sessionError, setSessionError] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isSavingSession, setIsSavingSession] = useState(false);
@@ -197,7 +208,9 @@ export function QuickDiagnosisScreen() {
     setSessionForm(initialSessionFormState);
   }
 
-  async function handleSubmit() {
+  async function handleSubmit(
+    confirmationOverride?: InputWarningConfirmation,
+  ) {
     if (isSubmitting) {
       return;
     }
@@ -215,11 +228,24 @@ export function QuickDiagnosisScreen() {
       return;
     }
 
+    const extraction = buildExtraction(requiredInput);
+    const confirmation = confirmationOverride ?? inputWarningConfirmation;
+    if (
+      shouldRequestInputWarningConfirmation({
+        input: requiredInput,
+        inputWarnings: extraction.inputWarnings,
+        confirmation,
+      })
+    ) {
+      setPendingInputWarnings(extraction.inputWarnings);
+      return;
+    }
+
+    setPendingInputWarnings([]);
     setIsSubmitting(true);
     try {
       const now = new Date().toISOString();
       const session = await saveSessionForShot(now);
-      const extraction = buildExtraction(requiredInput);
       const basicObservation = deriveBasicObservation({
         grindNote: form.grindNote,
         prepObservations: form.prepObservations,
@@ -262,6 +288,28 @@ export function QuickDiagnosisScreen() {
     } finally {
       setIsSubmitting(false);
     }
+  }
+
+  function handleConfirmInputWarnings() {
+    const confirmation = createInputWarningConfirmation({
+      tasteDescription: form.tasteDescription,
+      doseGrams: parseNumber(form.doseGrams),
+      yieldGrams: parseNumber(form.yieldGrams),
+      brewSeconds: parseNumber(form.brewSeconds),
+    });
+    setInputWarningConfirmation(confirmation);
+    void handleSubmit(confirmation);
+  }
+
+  function handleMeasuredValueChange(
+    field: "doseGrams" | "yieldGrams" | "brewSeconds",
+    value: string,
+  ) {
+    if (shouldInvalidateInputWarningConfirmation(field, form[field], value)) {
+      setInputWarningConfirmation(null);
+      setPendingInputWarnings([]);
+    }
+    setForm({ ...form, [field]: value });
   }
 
   function togglePrepObservation(id: PrepObservationId) {
@@ -522,7 +570,7 @@ export function QuickDiagnosisScreen() {
             label="도징량"
             styles={styles}
             value={form.doseGrams}
-            onChangeText={(doseGrams) => setForm({ ...form, doseGrams })}
+            onChangeText={(doseGrams) => handleMeasuredValueChange("doseGrams", doseGrams)}
             placeholder="18.0"
             suffix="g"
             error={errors.doseGrams}
@@ -533,7 +581,9 @@ export function QuickDiagnosisScreen() {
             label="추출량"
             styles={styles}
             value={form.yieldGrams}
-            onChangeText={(yieldGrams) => setForm({ ...form, yieldGrams })}
+            onChangeText={(yieldGrams) =>
+              handleMeasuredValueChange("yieldGrams", yieldGrams)
+            }
             placeholder="36.0"
             suffix="g"
             error={errors.yieldGrams}
@@ -544,7 +594,9 @@ export function QuickDiagnosisScreen() {
             label="시간"
             styles={styles}
             value={form.brewSeconds}
-            onChangeText={(brewSeconds) => setForm({ ...form, brewSeconds })}
+            onChangeText={(brewSeconds) =>
+              handleMeasuredValueChange("brewSeconds", brewSeconds)
+            }
             placeholder="28"
             suffix="s"
             error={errors.brewSeconds}
@@ -763,15 +815,38 @@ export function QuickDiagnosisScreen() {
       </ScrollView>
 
       <View style={styles.actionBar}>
+        {pendingInputWarnings.length > 0 ? (
+          <View style={styles.inputWarningNotice}>
+            <Text selectable style={styles.inputWarningTitle}>
+              입력값 확인 필요
+            </Text>
+            <Text selectable style={styles.inputWarningDescription}>
+              일반적인 범위를 벗어난 값입니다. 값을 다시 확인한 뒤 계속 저장하세요.
+            </Text>
+            {pendingInputWarnings.map((warning) => (
+              <Text key={warning} selectable style={styles.inputWarningItem}>
+                {formatInputWarning(warning)}
+              </Text>
+            ))}
+          </View>
+        ) : null}
         <Pressable
           accessibilityRole="button"
           disabled={isSubmitting}
           style={[styles.primaryButton, isSubmitting && styles.primaryButtonDisabled]}
-          onPress={handleSubmit}
+          onPress={
+            pendingInputWarnings.length > 0
+              ? handleConfirmInputWarnings
+              : () => void handleSubmit()
+          }
         >
           <WandSparkles color={colors.textInverse} size={19} strokeWidth={2.2} />
           <Text selectable style={styles.primaryButtonText}>
-            {isSubmitting ? "저장 중" : "추천 받기"}
+            {isSubmitting
+              ? "저장 중"
+              : pendingInputWarnings.length > 0
+                ? "이 값으로 계속 저장"
+                : "추천 받기"}
           </Text>
         </Pressable>
       </View>
@@ -1263,11 +1338,32 @@ function createStyles(colors: AppColors) {
     backgroundColor: colors.backgroundAlt,
   },
   actionBar: {
+    gap: spacing.sm,
     borderTopColor: colors.border,
     borderTopWidth: 1,
     padding: spacing.md,
     paddingBottom: spacing.lg,
     backgroundColor: colors.surface,
+  },
+  inputWarningNotice: {
+    gap: spacing.xs,
+    borderColor: colors.warning,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    padding: spacing.md,
+    backgroundColor: colors.backgroundAlt,
+  },
+  inputWarningTitle: {
+    ...typography.label,
+    color: colors.warning,
+  },
+  inputWarningDescription: {
+    ...typography.meta,
+    color: colors.text,
+  },
+  inputWarningItem: {
+    ...typography.meta,
+    color: colors.warning,
   },
   });
 }

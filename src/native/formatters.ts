@@ -1,5 +1,6 @@
 import type {
   BeanSession,
+  ExtractionInputWarningCode,
   RecommendationActionDirection,
   RecommendationActionVariable,
   RecommendationKeepVariable,
@@ -63,6 +64,13 @@ const tasteConfidenceLabels: Record<TasteConfidence, string> = {
   low: "낮음",
 };
 
+const inputWarningLabels: Record<ExtractionInputWarningCode, string> = {
+  dose_out_of_common_range: "도징량이 일반적인 범위를 벗어났습니다.",
+  yield_out_of_common_range: "추출량이 일반적인 범위를 벗어났습니다.",
+  time_out_of_common_range: "추출 시간이 일반적인 범위를 벗어났습니다.",
+  ratio_out_of_common_range: "추출 비율이 일반적인 범위를 벗어났습니다.",
+};
+
 export function formatActionVariable(variable: string): string {
   return actionVariableLabels[variable as keyof typeof actionVariableLabels] ?? variable;
 }
@@ -91,6 +99,10 @@ export function formatTasteTagPreview(tags: readonly TasteTag[]): string {
 
 export function formatSessionStatus(status: BeanSession["status"]): string {
   return status === "active" ? "진행 중" : "보관됨";
+}
+
+export function formatInputWarning(warning: ExtractionInputWarningCode): string {
+  return inputWarningLabels[warning];
 }
 
 export function formatRoastRange(range: RoastRange): string {

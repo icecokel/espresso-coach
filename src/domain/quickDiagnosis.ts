@@ -22,6 +22,11 @@ export interface QuickDiagnosisValidationResult {
   errors: Partial<Record<keyof QuickDiagnosisRequiredInput, string>>;
 }
 
+export type InputWarningConfirmation = Pick<
+  QuickDiagnosisRequiredInput,
+  "doseGrams" | "yieldGrams" | "brewSeconds"
+>;
+
 export interface BasicObservationInput {
   grindNote?: string;
   prepObservations?: PrepObservationId[];
@@ -44,6 +49,48 @@ export function validateQuickDiagnosisInput(
     ok: Object.keys(errors).length === 0,
     errors,
   };
+}
+
+export function createInputWarningConfirmation(
+  input: QuickDiagnosisRequiredInput,
+): InputWarningConfirmation {
+  return {
+    doseGrams: input.doseGrams,
+    yieldGrams: input.yieldGrams,
+    brewSeconds: input.brewSeconds,
+  };
+}
+
+export function shouldRequestInputWarningConfirmation({
+  input,
+  inputWarnings,
+  confirmation,
+}: {
+  input: QuickDiagnosisRequiredInput;
+  inputWarnings: readonly ExtractionInputWarningCode[];
+  confirmation: InputWarningConfirmation | null;
+}): boolean {
+  if (inputWarnings.length === 0) {
+    return false;
+  }
+
+  return (
+    confirmation === null ||
+    confirmation.doseGrams !== input.doseGrams ||
+    confirmation.yieldGrams !== input.yieldGrams ||
+    confirmation.brewSeconds !== input.brewSeconds
+  );
+}
+
+export function shouldInvalidateInputWarningConfirmation(
+  field: string,
+  previousValue: string,
+  nextValue: string,
+): boolean {
+  return (
+    (field === "doseGrams" || field === "yieldGrams" || field === "brewSeconds") &&
+    previousValue !== nextValue
+  );
 }
 
 export function buildExtraction(input: QuickDiagnosisRequiredInput): Extraction {

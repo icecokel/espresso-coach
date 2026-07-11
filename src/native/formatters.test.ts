@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   formatActionDirection,
   formatActionVariable,
+  formatInputWarning,
   formatKeepVariables,
   formatRoastRange,
   formatSessionStatus,
@@ -58,5 +59,20 @@ describe("native formatters", () => {
     expect(formatSessionStatus("archived")).toBe("보관됨");
     expect(formatRoastRange("medium_dark_range")).toBe("중강배전");
     expect(formatRoastRange("unknown")).toBe("배전도 모름");
+  });
+
+  it("formats extraction input warning labels in Korean", () => {
+    expect(formatInputWarning("dose_out_of_common_range")).toBe(
+      "도징량이 일반적인 범위를 벗어났습니다.",
+    );
+    expect(formatInputWarning("yield_out_of_common_range")).toBe(
+      "추출량이 일반적인 범위를 벗어났습니다.",
+    );
+    expect(formatInputWarning("time_out_of_common_range")).toBe(
+      "추출 시간이 일반적인 범위를 벗어났습니다.",
+    );
+    expect(formatInputWarning("ratio_out_of_common_range")).toBe(
+      "추출 비율이 일반적인 범위를 벗어났습니다.",
+    );
   });
 });

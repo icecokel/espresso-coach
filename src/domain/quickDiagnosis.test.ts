@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
   buildExtraction,
+  createInputWarningConfirmation,
   deriveBasicObservation,
+  shouldInvalidateInputWarningConfirmation,
+  shouldRequestInputWarningConfirmation,
   validateQuickDiagnosisInput,
 } from "./quickDiagnosis";
 
@@ -38,6 +41,58 @@ describe("quick diagnosis helpers", () => {
       yieldGrams: "숫자만 입력해주세요.",
       brewSeconds: "0보다 큰 값을 입력해주세요.",
     });
+  });
+
+  it("requires a fresh confirmation before continuing with warning inputs", () => {
+    const input = {
+      tasteDescription: "너무 시다",
+      doseGrams: 4,
+      yieldGrams: 8,
+      brewSeconds: 8,
+    };
+    const extraction = buildExtraction(input);
+    const confirmation = createInputWarningConfirmation(input);
+
+    expect(
+      shouldRequestInputWarningConfirmation({
+        input,
+        inputWarnings: extraction.inputWarnings,
+        confirmation: null,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRequestInputWarningConfirmation({
+        input,
+        inputWarnings: extraction.inputWarnings,
+        confirmation,
+      }),
+    ).toBe(false);
+    expect(
+      shouldRequestInputWarningConfirmation({
+        input: { ...input, doseGrams: 5 },
+        inputWarnings: extraction.inputWarnings,
+        confirmation,
+      }),
+    ).toBe(true);
+    expect(
+      shouldRequestInputWarningConfirmation({
+        input: { ...input, doseGrams: 18, yieldGrams: 36, brewSeconds: 28 },
+        inputWarnings: [],
+        confirmation: null,
+      }),
+    ).toBe(false);
+  });
+
+  it("invalidates a warning confirmation when a measured extraction value changes", () => {
+    expect(
+      shouldInvalidateInputWarningConfirmation("doseGrams", "4", "5"),
+    ).toBe(true);
+    expect(
+      shouldInvalidateInputWarningConfirmation("yieldGrams", "8", "8"),
+    ).toBe(false);
+    expect(
+      shouldInvalidateInputWarningConfirmation("tasteDescription", "시다", "쓰다"),
+    ).toBe(false);
   });
 
   it("derives prep summary from observed flow and puck issues", () => {
