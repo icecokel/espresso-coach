@@ -17,7 +17,7 @@ Last reviewed: 2026-07-12
 | `npm ci` | Pass | Node.js `v26.5.0` / npm `11.17.0`; `EBADENGINE` warning 없음. npm의 `allow-scripts` pending 안내는 출력됐지만 설치와 audit은 성공. |
 | `npm run lint` | Pass | TypeScript compile 통과 |
 | `npm test` | Pass | 10 unit test files / 57 unit tests와 E2E runner contract |
-| `npm run test:e2e` | Pass | Chromium preinstall, Expo web export, Playwright 7 scenarios; 성공 시 `dist/`, `output/playwright/` 정리, 실패 artifact 보존 |
+| `npm run test:e2e` | Pass | 2026-07-13 기준 Chromium preinstall, Expo web export, Playwright 16 scenarios; 성공 시 `dist/`, `output/playwright/` 정리, 실패 artifact 보존 |
 | Historical local web runtime smoke test | Pass | 2026-07-04 수동 Playwright 기록: validation, 빠른 진단, 다중 샷, 세션 편집/선택, 모바일 viewport, not-found route |
 | `npm exec expo-doctor` | Pass, 21/21 checks | Expo SDK dependency 정합성 확인 |
 | `npm audit` | Pass | 0 vulnerabilities |
@@ -98,7 +98,7 @@ Last reviewed: 2026-07-12
 
 - `npm run lint` 통과
 - `npm test` 통과
-- `npm run test:e2e` 통과: Chromium preinstall, Expo web export, Playwright 7 scenarios
+- `npm run test:e2e` 통과: Chromium preinstall, Expo web export, Playwright 16 scenarios
 - `npm exec expo-doctor` 21/21 통과
 - `docs/planning/verification-status.md`가 실제 검증 결과와 일치
 - `npm audit` 0 vulnerabilities

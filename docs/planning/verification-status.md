@@ -1,6 +1,6 @@
 # Verification Status
 
-Last updated: 2026-07-12
+Last updated: 2026-07-13
 
 ## Scope
 
@@ -15,16 +15,16 @@ Last updated: 2026-07-12
 
 ## Current Result
 
-2026-07-12 기준 headless 검증과 자동 local web E2E가 통과했다. 검증 환경은 Node.js `v26.5.0` / npm `11.17.0`이다. `npm ci`는 `EBADENGINE` 경고 없이 성공했다. npm 11.17.0은 `allow-scripts` pending 안내를 출력했지만 설치와 audit은 성공했으며, 이는 install script 승인 상태를 안내하는 메시지로만 기록한다.
+2026-07-13 기준 headless 검증과 자동 local web E2E가 통과했다. 검증 환경은 Node.js `v26.5.0` / npm `11.17.0`이다. `npm ci`는 2026-07-12에 `EBADENGINE` 경고 없이 성공했다. npm 11.17.0은 `allow-scripts` pending 안내를 출력했지만 설치와 audit은 성공했으며, 이는 install script 승인 상태를 안내하는 메시지로만 기록한다.
 
 2026-07-04의 수동 local web runtime smoke test 기록은 보존한다. 이 기록은 최신 자동 E2E의 대체가 아니며, 서로 다른 범위를 확인한다.
 
 | Check | Command | Result | Last confirmed |
 | --- | --- | --- | --- |
 | Clean dependency install | `npm ci` | Pass; no `EBADENGINE` warning. npm 11.17.0 `allow-scripts` pending notice emitted. | 2026-07-12 |
-| TypeScript compile | `npm run lint` | Pass | 2026-07-12 |
-| Unit tests and E2E runner contract | `npm test` | Pass; 10 unit test files / 57 unit tests, then E2E runner cleanup contract | 2026-07-12 |
-| Automated local web E2E | `npm run test:e2e` | Pass; Chromium preinstall, Expo web export, Playwright 7 scenarios | 2026-07-12 |
+| TypeScript compile | `npm run lint` | Pass | 2026-07-13 |
+| Unit tests and E2E runner contract | `npm test` | Pass; 10 unit test files / 57 unit tests, then E2E runner cleanup contract | 2026-07-13 |
+| Automated local web E2E | `npm run test:e2e` | Pass; Chromium preinstall, Expo web export, Playwright 16 scenarios | 2026-07-13 |
 | Expo project health | `npm exec expo-doctor` | Pass, 21/21 checks | 2026-07-12 |
 | Dependency audit | `npm audit` | Pass, 0 vulnerabilities | 2026-07-12 |
 | Working tree whitespace check | `git diff --check` | Pass | 2026-07-12 |
@@ -56,6 +56,8 @@ Headless 및 자동 local web E2E로 확인된 영역:
 - dose, yield, brew time 변경 후 warning 확인을 다시 요구하는지 여부
 - 직전 샷의 유효한 dose/yield 변경 자동 기록, 수동 same-variable override, 결과 기반 역방향 추천 여부
 - 세션 보관/복원, 보관된 세션의 진단 제외와 stale route 저장 차단 여부
+- 빈 필수값 validation, 세션 생성/선택, direct not-found route와 정상 제출의 browser error 부재
+- `320x640`, `390x844`, `768x1024`, `1440x900` viewport의 수평 overflow와 CTA 노출 여부
 - native SQLite의 archived session shot write 차단과 direct/next-shot transaction 경계 mock 검증
 - E2E runner가 Chromium 사전 설치와 성공/실패별 artifact cleanup contract를 지키는지 여부
 - app이 font loading state를 표시하고, font error state에서 retry UI를 제공하는지 여부
@@ -64,7 +66,7 @@ Headless 및 자동 local web E2E로 확인된 영역:
 
 ## Automated Local Web E2E
 
-2026-07-12에 `npm run test:e2e`를 실행해 Expo web export 기반 Playwright 7 scenarios를 통과했다.
+2026-07-13에 `npm run test:e2e`를 실행해 Expo web export 기반 Playwright 16 scenarios를 통과했다.
 
 1. 비정상 입력의 첫 제출은 form에 남고 명시적 확인을 요구한다.
 2. `이 값으로 계속 저장` 버튼의 double-click은 결과 route history entry 하나만 만든다.
@@ -73,8 +75,13 @@ Headless 및 자동 local web E2E로 확인된 영역:
 5. warning 뒤 brew time을 변경하면 다시 확인을 요구한다.
 6. 두 번째 샷에서 수동 `finer` + `worse` 결과를 기록하면 역방향인 coarser 추천을 표시한다.
 7. 세션 보관 후 진단에서 제외하고, stale 세션 저장을 차단하며, detail에서 복원하면 다시 active 목록에 표시한다.
+8. 빈 제출은 빠른 진단 경로에 머물며 필수값 오류를 표시한다.
+9. 이름, 원두, 로스터, 배전 범위를 가진 세션을 만들고 목록에서 다시 진단에 사용한다.
+10. 존재하지 않는 샷과 세션 direct route는 각각 not-found 상태를 표시한다.
+11. `320x640`, `390x844`, `768x1024`, `1440x900` viewport에서 수평 overflow 없이 CTA를 표시한다.
+12. 정상 제출은 browser console/page error 없이 샷 결과 route로 이동한다.
 
-이 자동 E2E는 input warning 5개, previous-shot feedback 1개, archive/restore와 stale route 보호 1개를 확인한다. 세션 편집, mobile viewport, SPA fallback 등의 넓은 사용자 흐름은 아래의 2026-07-04 수동 smoke record 범위로 보존한다.
+이 자동 E2E는 input warning 5개, previous-shot feedback 1개, archive/restore와 stale route 보호 1개, navigation/responsiveness 9개를 확인한다. 세션 편집과 실제 기기 keyboard/safe area 검증은 아래의 2026-07-04 수동 smoke record 및 다음 device 검증 범위로 보존한다.
 
 ## Historical Local Web Runtime Smoke Test
 
