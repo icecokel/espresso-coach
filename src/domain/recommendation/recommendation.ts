@@ -75,6 +75,9 @@ const PREP_ACTION_VARIABLE_ORDER: RecommendationActionVariable[] = [
   "puck_prep",
 ];
 
+const IMPROVED_CHANGE_CONTINUATION_SCORE = 1;
+const WORSE_CHANGE_INVERSION_SCORE = 5;
+
 export function buildRecommendation(
   input: RecommendationInput,
 ): RecommendationResult {
@@ -367,10 +370,14 @@ function applyPreviousShotComparison(
   const has = (id: TasteTagId) => context.tagIds.has(id);
   const changes = input.changesFromPrevious;
 
+  applyRecordedChangeOutcome(changes, context);
+
   if (
     changes.some(
       (change) =>
-        change.variable === "grind_size" && change.direction === "finer",
+        hasLegacyChangeResult(change) &&
+        change.variable === "grind_size" &&
+        change.direction === "finer",
     ) &&
     (has("bitter") || has("astringent"))
   ) {
@@ -382,7 +389,9 @@ function applyPreviousShotComparison(
   if (
     changes.some(
       (change) =>
-        change.variable === "grind_size" && change.direction === "coarser",
+        hasLegacyChangeResult(change) &&
+        change.variable === "grind_size" &&
+        change.direction === "coarser",
     ) &&
     has("sour")
   ) {
@@ -393,13 +402,104 @@ function applyPreviousShotComparison(
 
   if (
     changes.some(
-      (change) => change.variable === "yield" && change.direction === "increase",
+      (change) =>
+        hasLegacyChangeResult(change) &&
+        change.variable === "yield" &&
+        change.direction === "increase",
     ) &&
     (has("watery") || has("hollow"))
   ) {
     addMatchedRule(context, "C-YIELD-UP-WATERY");
     addScore(context, "A-YIELD-DECREASE", 2);
     context.rationale.push("직전 추출량 증가 후 희석감이 커졌을 수 있다.");
+  }
+}
+
+function applyRecordedChangeOutcome(
+  changes: ShotChange[],
+  context: BuildContext,
+): void {
+  for (const change of changes) {
+    const actionId = getChangeActionId(change);
+
+    if (!actionId) {
+      continue;
+    }
+
+    if (change.result === "improved") {
+      addScore(context, actionId, IMPROVED_CHANGE_CONTINUATION_SCORE);
+      context.rationale.push(
+        "직전 조정 후 개선되어 같은 방향을 소폭 이어간다.",
+      );
+    }
+
+    if (change.result === "worse") {
+      addScore(context, getInverseActionId(actionId), WORSE_CHANGE_INVERSION_SCORE);
+      context.rationale.push(
+        "직전 조정 후 악화되어 반대 방향 조정을 우선한다.",
+      );
+    }
+  }
+}
+
+function hasLegacyChangeResult(change: ShotChange): boolean {
+  return change.result === undefined || change.result === "unknown";
+}
+
+function getChangeActionId(
+  change: ShotChange,
+): RecommendationActionId | undefined {
+  if (change.variable === "grind_size") {
+    if (change.direction === "finer") {
+      return "A-GRIND-FINER";
+    }
+
+    if (change.direction === "coarser") {
+      return "A-GRIND-COARSER";
+    }
+  }
+
+  if (change.variable === "yield") {
+    if (change.direction === "increase") {
+      return "A-YIELD-INCREASE";
+    }
+
+    if (change.direction === "decrease") {
+      return "A-YIELD-DECREASE";
+    }
+  }
+
+  if (change.variable === "dose") {
+    if (change.direction === "increase") {
+      return "A-DOSE-INCREASE";
+    }
+
+    if (change.direction === "decrease") {
+      return "A-DOSE-DECREASE";
+    }
+  }
+
+  return undefined;
+}
+
+function getInverseActionId(
+  actionId: RecommendationActionId,
+): RecommendationActionId {
+  switch (actionId) {
+    case "A-GRIND-FINER":
+      return "A-GRIND-COARSER";
+    case "A-GRIND-COARSER":
+      return "A-GRIND-FINER";
+    case "A-YIELD-INCREASE":
+      return "A-YIELD-DECREASE";
+    case "A-YIELD-DECREASE":
+      return "A-YIELD-INCREASE";
+    case "A-DOSE-INCREASE":
+      return "A-DOSE-DECREASE";
+    case "A-DOSE-DECREASE":
+      return "A-DOSE-INCREASE";
+    default:
+      return actionId;
   }
 }
 

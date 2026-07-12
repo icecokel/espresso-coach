@@ -279,4 +279,170 @@ describe("buildRecommendation", () => {
       "직전 추출량 증가 후 희석감이 커졌을 수 있다.",
     );
   });
+
+  it("distinguishes a successful adjustment from a worsening adjustment", () => {
+    const improvedResult = buildRecommendation(
+      buildInput({
+        changesFromPrevious: [
+          {
+            variable: "yield",
+            direction: "increase",
+            result: "improved",
+          },
+        ],
+      }),
+    );
+    const worseResult = buildRecommendation(
+      buildInput({
+        changesFromPrevious: [
+          {
+            variable: "yield",
+            direction: "increase",
+            result: "worse",
+          },
+        ],
+      }),
+    );
+
+    expect(improvedResult.primary.id).toBe("A-YIELD-INCREASE");
+    expect(improvedResult.rationale).toContain(
+      "직전 조정 후 개선되어 같은 방향을 소폭 이어간다.",
+    );
+    expect(worseResult.primary.id).toBe("A-YIELD-DECREASE");
+    expect(worseResult.rationale).toContain(
+      "직전 조정 후 악화되어 반대 방향 조정을 우선한다.",
+    );
+  });
+
+  it("prioritizes reversing a worse grind adjustment over a sour short base rule", () => {
+    const result = buildRecommendation(
+      buildInput({
+        tasteTags: [tag("sour")],
+        brewTimeBand: "short",
+        changesFromPrevious: [
+          {
+            variable: "grind_size",
+            direction: "finer",
+            result: "worse",
+          },
+        ],
+      }),
+    );
+
+    expect(result.primary.id).toBe("A-GRIND-COARSER");
+    expect(result.alternatives.map((action) => action.id)).toContain(
+      "A-GRIND-FINER",
+    );
+  });
+
+  it("prioritizes reversing a worse grind adjustment over a sour bitter conflict rule", () => {
+    const result = buildRecommendation(
+      buildInput({
+        tasteTags: [tag("sour"), tag("bitter")],
+        tastePatterns: [
+          pattern("conflicting_extraction_signals", ["sour", "bitter"]),
+        ],
+        changesFromPrevious: [
+          {
+            variable: "grind_size",
+            direction: "finer",
+            result: "worse",
+          },
+        ],
+      }),
+    );
+
+    expect(result.primary.id).toBe("A-GRIND-COARSER");
+  });
+
+  it("preserves legacy previous-shot behavior when result is missing or unknown", () => {
+    const legacyResult = buildRecommendation(
+      buildInput({
+        tasteTags: [tag("watery")],
+        brewRatioBand: "target",
+        changesFromPrevious: [
+          {
+            variable: "yield",
+            direction: "increase",
+            amountLabel: "small",
+          },
+        ],
+      }),
+    );
+    const unknownResult = buildRecommendation(
+      buildInput({
+        tasteTags: [tag("watery")],
+        brewRatioBand: "target",
+        changesFromPrevious: [
+          {
+            variable: "yield",
+            direction: "increase",
+            amountLabel: "small",
+            result: "unknown",
+          },
+        ],
+      }),
+    );
+
+    expect(unknownResult).toEqual(legacyResult);
+  });
+
+  it("preserves the legacy finer-grind corrective modifier when result is missing or unknown", () => {
+    const legacyResult = buildRecommendation(
+      buildInput({
+        tasteTags: [tag("bitter")],
+        brewTimeBand: "normal",
+        changesFromPrevious: [
+          {
+            variable: "grind_size",
+            direction: "finer",
+          },
+        ],
+      }),
+    );
+    const unknownResult = buildRecommendation(
+      buildInput({
+        tasteTags: [tag("bitter")],
+        brewTimeBand: "normal",
+        changesFromPrevious: [
+          {
+            variable: "grind_size",
+            direction: "finer",
+            result: "unknown",
+          },
+        ],
+      }),
+    );
+
+    expect(legacyResult.primary.id).toBe("A-GRIND-COARSER");
+    expect(unknownResult).toEqual(legacyResult);
+  });
+
+  it("keeps an observation override as the primary action after a worse result", () => {
+    const result = buildRecommendation(
+      buildInput({
+        tasteTags: [tag("sour")],
+        brewTimeBand: "short",
+        basicObservation: {
+          ...createEmptyBasicObservation(),
+          prepObservations: ["spurting_or_spraying"],
+          channelingObserved: "yes",
+          prepIssue: "suspected",
+          prepIssueTypes: ["flow"],
+        },
+        changesFromPrevious: [
+          {
+            variable: "grind_size",
+            direction: "finer",
+            result: "worse",
+          },
+        ],
+      }),
+    );
+
+    expect(result.primary.id).toBe("A-CHANNELING-CHECK");
+    expect(result.rationale).toContain(
+      "직전 조정 후 악화되어 반대 방향 조정을 우선한다.",
+    );
+  });
 });

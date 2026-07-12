@@ -126,6 +126,8 @@ export type ShotChangeDirection =
   | "changed"
   | "unknown";
 
+export type ShotChangeResult = "improved" | "worse" | "unknown";
+
 export type ChangeAmountLabel =
   | "one_small_step"
   | "small"
@@ -135,6 +137,7 @@ export type ChangeAmountLabel =
 export interface ShotChange {
   variable: ShotChangeVariable;
   direction: ShotChangeDirection;
+  result?: ShotChangeResult;
   amountLabel?: ChangeAmountLabel;
   note?: string;
 }
