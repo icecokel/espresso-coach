@@ -131,6 +131,7 @@ describe("createNativeRepository", () => {
 
     await repository.createShot(shot());
 
+    expect(databaseMock.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
     const [sql] = databaseMock.runAsync.mock.calls[0];
     expect(sql).toContain("INSERT INTO shot_records");
     expect(sql).not.toContain("INSERT OR REPLACE INTO shot_records");
@@ -187,6 +188,36 @@ describe("createNativeRepository", () => {
     expect(sessionId).toBe("session_1");
   });
 
+  it("preserves an archived stored status while updating session metadata", async () => {
+    const archivedSession = { ...session(), status: "archived" as const };
+    databaseMock.getFirstAsync.mockImplementation((sql: string, sessionId?: string) => {
+      if (sql.includes("FROM bean_sessions")) {
+        return Promise.resolve({
+          id: sessionId ?? archivedSession.id,
+          data: JSON.stringify({ ...archivedSession, status: "active" }),
+          status: "archived",
+          updated_at: archivedSession.updatedAt,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+    const repository = createNativeRepository({ databaseName: "test.db" });
+
+    const updated = await repository.updateSession(archivedSession.id, {
+      name: "Metadata Update",
+    });
+
+    expect(databaseMock.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
+    expect(updated).toMatchObject({
+      name: "Metadata Update",
+      status: "archived",
+    });
+    expect(JSON.parse(databaseMock.runAsync.mock.calls[0][1] as string)).toMatchObject({
+      name: "Metadata Update",
+      status: "archived",
+    });
+  });
+
   it("archives sessions without replace semantics so existing shots are not cascaded away", async () => {
     const archivedNow = "2026-06-20T18:30:00+09:00";
     const repository = createNativeRepository({
@@ -207,6 +238,65 @@ describe("createNativeRepository", () => {
     expect(status).toBe("archived");
     expect(updatedAt).toBe(archivedNow);
     expect(sessionId).toBe("session_1");
+  });
+
+  it("blocks archived sessions in both shot routes until they are restored", async () => {
+    let storedSession = session();
+    let nextShotNumber = 1;
+    databaseMock.getFirstAsync.mockImplementation((sql: string, sessionId?: string) => {
+      if (sql.includes("MAX(shot_number)")) {
+        return Promise.resolve({ nextShotNumber });
+      }
+      if (sql.includes("FROM bean_sessions")) {
+        return Promise.resolve({
+          id: sessionId ?? storedSession.id,
+          data: JSON.stringify(storedSession),
+          status: storedSession.status,
+          updated_at: storedSession.updatedAt,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+    databaseMock.runAsync.mockImplementation((sql: string, data?: string) => {
+      if (sql.includes("UPDATE bean_sessions")) {
+        storedSession = JSON.parse(data as string) as BeanSession;
+      }
+      if (sql.includes("INSERT INTO shot_records")) {
+        nextShotNumber += 1;
+      }
+      return Promise.resolve({ changes: 1, lastInsertRowId: 1 });
+    });
+    const repository = createNativeRepository({
+      databaseName: "test.db",
+      now: () => "2026-06-20T19:00:00+09:00",
+    });
+
+    await repository.archiveSession(storedSession.id);
+    await expect(repository.createShot(shot(storedSession.id, 1))).rejects.toThrow(
+      "Archived sessions cannot save shots",
+    );
+    await expect(
+      repository.createShotWithNextNumber(shotDraft(storedSession.id)),
+    ).rejects.toThrow("Archived sessions cannot save shots");
+    expect(databaseMock.withExclusiveTransactionAsync).toHaveBeenCalledTimes(2);
+
+    const restored = await repository.restoreSession(storedSession.id);
+    expect(restored).toMatchObject({
+      status: "active",
+      updatedAt: "2026-06-20T19:00:00+09:00",
+    });
+    const restoredDirectShot = await repository.createShot(shot(storedSession.id, 1));
+    expect(restoredDirectShot.shotNumber).toBe(1);
+    const nextShot = await repository.createShotWithNextNumber(
+      shotDraft(storedSession.id),
+    );
+    expect(nextShot.shotNumber).toBe(2);
+    expect(databaseMock.withExclusiveTransactionAsync).toHaveBeenCalledTimes(4);
+    expect(
+      databaseMock.runAsync.mock.calls.some(([sql]) =>
+        (sql as string).includes("INSERT INTO shot_records"),
+      ),
+    ).toBe(true);
   });
 
   it("skips the unique index migration when existing duplicate shot numbers are detected", async () => {

@@ -105,6 +105,36 @@ describe("EspressoCoachRepository", () => {
     ]);
   });
 
+  it("blocks shots for archived sessions until they are restored", async () => {
+    let currentNow = "2026-06-20T18:00:00+09:00";
+    const repository = createMemoryRepository({ now: () => currentNow });
+    const session = await repository.createSession(createAutoBeanSession({ now }));
+    const firstShot = await repository.createShotWithNextNumber(
+      shotDraft(session.id, "shot_1"),
+    );
+
+    const archived = await repository.archiveSession(session.id);
+    expect(archived.status).toBe("archived");
+    await expect(repository.createShot(shot(session.id, 2))).rejects.toThrow(
+      "Archived sessions cannot save shots",
+    );
+    await expect(
+      repository.createShotWithNextNumber(shotDraft(session.id, "shot_blocked")),
+    ).rejects.toThrow("Archived sessions cannot save shots");
+
+    currentNow = "2026-06-20T19:00:00+09:00";
+    const restored = await repository.restoreSession(session.id);
+    expect(restored).toMatchObject({
+      status: "active",
+      updatedAt: currentNow,
+    });
+
+    const nextShot = await repository.createShotWithNextNumber(
+      shotDraft(session.id, "shot_2"),
+    );
+    expect(nextShot.shotNumber).toBe(firstShot.shotNumber + 1);
+  });
+
   it("rejects saved shots without a recommendation snapshot", async () => {
     const repository = createMemoryRepository();
     const session = await repository.createSession(createAutoBeanSession({ now }));

@@ -1,16 +1,18 @@
 import { Link } from "expo-router";
 import {
+  Archive,
   ChevronRight,
   ClipboardList,
   Gauge,
   History,
+  RotateCcw,
   Target,
 } from "lucide-react-native";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import type { BeanSession, ShotRecord } from "../../domain/types";
-import { formatActionVariable } from "../formatters";
+import { formatActionVariable, formatSessionStatus } from "../formatters";
 import { repository } from "../repository";
 import {
   layout,
@@ -31,6 +33,8 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
   const [detailState, setDetailState] = useState<DetailState>(
     sessionId ? "loading" : "not-found",
   );
+  const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [statusError, setStatusError] = useState<string | undefined>();
 
   useEffect(() => {
     if (!sessionId) {
@@ -94,6 +98,31 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
 
   const latestShot = shots[shots.length - 1];
 
+  async function handleSessionStatusAction() {
+    const currentSession = session;
+    if (isUpdatingStatus || !currentSession) {
+      return;
+    }
+
+    setIsUpdatingStatus(true);
+    setStatusError(undefined);
+    try {
+      const updatedSession =
+        currentSession.status === "active"
+          ? await repository.archiveSession(currentSession.id)
+          : await repository.restoreSession(currentSession.id);
+      setSession(updatedSession);
+    } catch {
+      setStatusError(
+        currentSession.status === "active"
+          ? "세션을 보관하지 못했습니다. 다시 시도해주세요."
+          : "세션을 복원하지 못했습니다. 다시 시도해주세요.",
+      );
+    } finally {
+      setIsUpdatingStatus(false);
+    }
+  }
+
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
@@ -114,12 +143,49 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
           </Text>
           </View>
         </View>
-        <View style={styles.countBadge}>
-          <History color={colors.textInverse} size={13} strokeWidth={2} />
-          <Text selectable style={styles.countBadgeText}>
-            샷 {shots.length}개
-          </Text>
+        <View style={styles.headerMeta}>
+          <View style={styles.statusBadge}>
+            <Text selectable style={styles.statusBadgeText}>
+              {formatSessionStatus(session.status)}
+            </Text>
+          </View>
+          <View style={styles.countBadge}>
+            <History color={colors.textInverse} size={13} strokeWidth={2} />
+            <Text selectable style={styles.countBadgeText}>
+              샷 {shots.length}개
+            </Text>
+          </View>
         </View>
+      </View>
+
+      <View style={styles.statusActionRow}>
+        <Pressable
+          accessibilityLabel={
+            session.status === "active" ? "세션 보관" : "세션 복원"
+          }
+          accessibilityRole="button"
+          accessibilityState={{ disabled: isUpdatingStatus }}
+          disabled={isUpdatingStatus}
+          onPress={() => void handleSessionStatusAction()}
+          style={[
+            styles.statusActionButton,
+            isUpdatingStatus && styles.statusActionButtonDisabled,
+          ]}
+        >
+          {session.status === "active" ? (
+            <Archive color={colors.textInverse} size={16} strokeWidth={2} />
+          ) : (
+            <RotateCcw color={colors.textInverse} size={16} strokeWidth={2} />
+          )}
+          <Text selectable style={styles.statusActionButtonText}>
+            {session.status === "active" ? "보관" : "복원"}
+          </Text>
+        </Pressable>
+        {statusError ? (
+          <Text selectable style={styles.statusError}>
+            {statusError}
+          </Text>
+        ) : null}
       </View>
 
       <View style={styles.summaryStrip}>
@@ -277,6 +343,11 @@ function createStyles(colors: AppColors) {
     alignItems: "center",
     gap: spacing.sm,
   },
+  headerMeta: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
+  },
   headerIcon: {
     width: 34,
     height: 34,
@@ -300,6 +371,43 @@ function createStyles(colors: AppColors) {
   countBadgeText: {
     ...typography.strongMeta,
     color: colors.textInverse,
+  },
+  statusBadge: {
+    overflow: "hidden",
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xs,
+    backgroundColor: colors.backgroundAlt,
+  },
+  statusBadgeText: {
+    ...typography.strongMeta,
+    color: colors.primary,
+  },
+  statusActionRow: {
+    gap: spacing.sm,
+  },
+  statusActionButton: {
+    flexDirection: "row",
+    alignSelf: "flex-start",
+    alignItems: "center",
+    gap: spacing.sm,
+    minHeight: layout.minTouchSize,
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.primaryDark,
+  },
+  statusActionButtonDisabled: {
+    opacity: 0.65,
+  },
+  statusActionButtonText: {
+    ...typography.label,
+    color: colors.textInverse,
+  },
+  statusError: {
+    ...typography.label,
+    color: colors.danger,
   },
   summaryStrip: {
     flexDirection: "row",

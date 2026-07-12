@@ -47,7 +47,10 @@ import type {
   ShotChangeVariable,
   ShotRecord,
 } from "../../domain/types";
-import { createAutoBeanSession } from "../../storage/repository";
+import {
+  ARCHIVED_SESSION_SHOT_ERROR,
+  createAutoBeanSession,
+} from "../../storage/repository";
 import {
   formatActionVariable,
   formatInputWarning,
@@ -136,6 +139,9 @@ const changeResultOptions: Array<{ value: ShotChangeResult; label: string }> = [
   { value: "worse", label: "나빠짐" },
 ];
 
+const archivedSessionSubmitError =
+  "보관된 세션에서는 샷을 저장할 수 없습니다. 세션 목록에서 복원한 뒤 다시 시도하세요.";
+
 export function QuickDiagnosisScreen() {
   const params = useLocalSearchParams<{ sessionId?: string | string[] }>();
   const { colors } = useAppTheme();
@@ -155,8 +161,13 @@ export function QuickDiagnosisScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submissionLockRef = useRef(createSubmissionLock());
   const [isSavingSession, setIsSavingSession] = useState(false);
+  const [isLoadingSessions, setIsLoadingSessions] = useState(true);
+  const [sessionLoadError, setSessionLoadError] = useState<string | undefined>();
   const [sessions, setSessions] = useState<BeanSession[]>([]);
   const [activeSession, setActiveSession] = useState<BeanSession | null>(null);
+  const [blockedArchivedSessionId, setBlockedArchivedSessionId] = useState<
+    string | undefined
+  >();
   const [recentShots, setRecentShots] = useState<ShotRecord[]>([]);
   const nextShotNumber = recentShots.length + 1;
   const previousShot = recentShots[recentShots.length - 1];
@@ -177,25 +188,52 @@ export function QuickDiagnosisScreen() {
   }, [params.sessionId]);
 
   async function loadSessions(preferredSessionId?: string) {
+    setIsLoadingSessions(true);
+    setSessionLoadError(undefined);
     try {
       const nextSessions = await repository.listSessions();
+      const activeSessions = nextSessions.filter((item) => item.status === "active");
+      const preferredSession = preferredSessionId
+        ? nextSessions.find((item) => item.id === preferredSessionId)
+        : undefined;
+
+      setSessions(activeSessions);
+      if (preferredSession?.status === "archived") {
+        setBlockedArchivedSessionId(preferredSession.id);
+        setActiveSession(null);
+        setSessionForm(initialSessionFormState);
+        setRecentShots([]);
+        setSubmitError(archivedSessionSubmitError);
+        return;
+      }
+
       const session =
-        (preferredSessionId
-          ? nextSessions.find((item) => item.id === preferredSessionId)
-          : undefined) ??
-        nextSessions.find((item) => item.status === "active") ??
-        nextSessions[0] ??
+        activeSessions.find((item) => item.id === preferredSessionId) ??
+        activeSessions[0] ??
         null;
-      setSessions(nextSessions);
+      setBlockedArchivedSessionId(undefined);
       setActiveSession(session);
       setSessionForm(session ? formFromSession(session) : initialSessionFormState);
       setRecentShots(session ? await repository.listShots(session.id) : []);
     } catch {
-      setSubmitError("세션 기록을 불러오지 못했습니다.");
+      const error = "세션 기록을 불러오지 못했습니다. 다시 열어주세요.";
+      setSessionLoadError(error);
+      setSubmitError(error);
+    } finally {
+      setIsLoadingSessions(false);
     }
   }
 
   async function handleSelectSession(session: BeanSession) {
+    if (session.status === "archived") {
+      setBlockedArchivedSessionId(session.id);
+      setActiveSession(null);
+      setRecentShots([]);
+      setSubmitError(archivedSessionSubmitError);
+      return;
+    }
+
+    setBlockedArchivedSessionId(undefined);
     setActiveSession(session);
     setSessionForm(formFromSession(session));
     setSessionError(undefined);
@@ -226,8 +264,9 @@ export function QuickDiagnosisScreen() {
             roaster: patch.roaster,
           });
       const nextSessions = await repository.listSessions();
-      setSessions(nextSessions);
+      setSessions(nextSessions.filter((item) => item.status === "active"));
       setActiveSession(savedSession);
+      setBlockedArchivedSessionId(undefined);
       setSessionForm(formFromSession(savedSession));
       setRecentShots(await repository.listShots(savedSession.id));
     } catch {
@@ -238,6 +277,7 @@ export function QuickDiagnosisScreen() {
   }
 
   function handleNewSessionDraft() {
+    setBlockedArchivedSessionId(undefined);
     setActiveSession(null);
     setRecentShots([]);
     setSessionError(undefined);
@@ -253,6 +293,18 @@ export function QuickDiagnosisScreen() {
 
     try {
       setSubmitError(undefined);
+      if (isLoadingSessions) {
+        setSubmitError("세션을 불러오는 중입니다. 잠시 후 다시 시도하세요.");
+        return;
+      }
+      if (sessionLoadError) {
+        setSubmitError(sessionLoadError);
+        return;
+      }
+      if (blockedArchivedSessionId) {
+        setSubmitError(archivedSessionSubmitError);
+        return;
+      }
       const requiredInput = {
         tasteDescription: form.tasteDescription,
         doseGrams: parseNumber(form.doseGrams),
@@ -315,12 +367,18 @@ export function QuickDiagnosisScreen() {
 
       setActiveSession(session);
       setSessionForm(formFromSession(session));
-      setSessions(await repository.listSessions());
+      setSessions(
+        (await repository.listSessions()).filter((item) => item.status === "active"),
+      );
       setRecentShots(await repository.listShots(session.id));
       setForm(initialFormState);
       router.push({ pathname: "/shot/[shotId]", params: { shotId: savedShot.id } });
-    } catch {
-      setSubmitError("추천을 저장하지 못했습니다. 다시 시도해주세요.");
+    } catch (error) {
+      setSubmitError(
+        error instanceof Error && error.message === ARCHIVED_SESSION_SHOT_ERROR
+          ? archivedSessionSubmitError
+          : "추천을 저장하지 못했습니다. 다시 시도해주세요.",
+      );
     } finally {
       setIsSubmitting(false);
       submissionLockRef.current.release();
@@ -361,7 +419,11 @@ export function QuickDiagnosisScreen() {
   async function saveSessionForShot(now: string): Promise<BeanSession> {
     const patch = sessionPatchFromForm(sessionForm, now);
     if (activeSession) {
-      return repository.updateSession(activeSession.id, patch);
+      const currentSession = await repository.getSession(activeSession.id);
+      if (!currentSession || currentSession.status === "archived") {
+        throw new Error(ARCHIVED_SESSION_SHOT_ERROR);
+      }
+      return repository.updateSession(currentSession.id, patch);
     }
 
     return repository.createSession({
@@ -437,6 +499,17 @@ export function QuickDiagnosisScreen() {
             </Text>
           </View>
         </View>
+
+        {isLoadingSessions ? (
+          <Text selectable style={styles.mutedText}>
+            세션을 불러오는 중입니다.
+          </Text>
+        ) : null}
+        {sessionLoadError ? (
+          <Text selectable style={styles.submitError}>
+            {sessionLoadError}
+          </Text>
+        ) : null}
 
         <View style={styles.sessionPicker}>
           {sessions.length === 0 ? (

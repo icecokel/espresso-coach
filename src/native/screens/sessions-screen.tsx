@@ -1,5 +1,12 @@
 import { Link, router } from "expo-router";
-import { ChevronRight, ClipboardList, Coffee, History } from "lucide-react-native";
+import {
+  Archive,
+  ChevronRight,
+  ClipboardList,
+  Coffee,
+  History,
+  RotateCcw,
+} from "lucide-react-native";
 import { useEffect, useState } from "react";
 import {
   Pressable,
@@ -47,6 +54,9 @@ export function SessionsScreen() {
   );
   const [error, setError] = useState<string | undefined>();
   const [isSaving, setIsSaving] = useState(false);
+  const [pendingSessionActionId, setPendingSessionActionId] = useState<
+    string | undefined
+  >();
 
   useEffect(() => {
     void loadSessions();
@@ -101,11 +111,163 @@ export function SessionsScreen() {
   }
 
   function handleUseSession(session: BeanSession) {
+    if (session.status === "archived") {
+      setError("보관된 세션은 진단에 사용할 수 없습니다. 먼저 복원하세요.");
+      return;
+    }
     router.push({ pathname: "/", params: { sessionId: session.id } });
   }
 
   function handleOpenSession(session: BeanSession) {
     router.push({ pathname: "/session/[sessionId]", params: { sessionId: session.id } });
+  }
+
+  async function handleArchiveSession(session: BeanSession) {
+    await changeSessionStatus(session, "archive");
+  }
+
+  async function handleRestoreSession(session: BeanSession) {
+    await changeSessionStatus(session, "restore");
+  }
+
+  async function changeSessionStatus(
+    session: BeanSession,
+    action: "archive" | "restore",
+  ) {
+    if (pendingSessionActionId) {
+      return;
+    }
+
+    setPendingSessionActionId(session.id);
+    setError(undefined);
+    try {
+      const changedSession =
+        action === "archive"
+          ? await repository.archiveSession(session.id)
+          : await repository.restoreSession(session.id);
+      if (editingSessionId === changedSession.id && changedSession.status === "archived") {
+        handleNewSession();
+      }
+      setSessions(await repository.listSessions());
+    } catch {
+      setError(
+        action === "archive"
+          ? "세션을 보관하지 못했습니다. 다시 시도해주세요."
+          : "세션을 복원하지 못했습니다. 다시 시도해주세요.",
+      );
+    } finally {
+      setPendingSessionActionId(undefined);
+    }
+  }
+
+  const activeSessions = sessions.filter((session) => session.status === "active");
+  const archivedSessions = sessions.filter((session) => session.status === "archived");
+
+  function renderSessionCard(session: BeanSession) {
+    const isActive = session.status === "active";
+    const isPending = pendingSessionActionId === session.id;
+
+    return (
+      <Pressable
+        accessibilityLabel={`${session.name} 세션 상세`}
+        accessibilityRole="link"
+        key={session.id}
+        onPress={() => handleOpenSession(session)}
+        style={styles.card}
+      >
+        {isActive ? <View style={styles.activeBar} /> : null}
+        <View style={styles.cardBody}>
+          <View style={styles.sessionPill}>
+            <History color={colors.textInverse} size={12} strokeWidth={2} />
+            <Text selectable style={styles.sessionPillText}>
+              {formatSessionStatus(session.status)}
+            </Text>
+          </View>
+          <Text selectable style={styles.title}>
+            {session.name}
+          </Text>
+          <Text selectable style={styles.mutedText}>
+            {session.beanName ? `${session.beanName} · ` : ""}
+            {formatRoastRange(session.roastProfile.range)}
+          </Text>
+          <Text selectable style={styles.mutedText}>
+            최근 업데이트 {session.updatedAt.slice(0, 10)}
+          </Text>
+          <View style={styles.cardActions}>
+            {isActive ? (
+              <>
+                <Pressable
+                  accessibilityLabel={`${session.name} 진단에 사용`}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isPending }}
+                  disabled={isPending}
+                  onPress={(event) => {
+                    stopNestedCardAction(event);
+                    handleUseSession(session);
+                  }}
+                  style={styles.smallDarkButton}
+                >
+                  <Text selectable style={styles.smallDarkButtonText}>
+                    진단에 사용
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityLabel={`${session.name} 수정`}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isPending }}
+                  disabled={isPending}
+                  onPress={(event) => {
+                    stopNestedCardAction(event);
+                    handleEditSession(session);
+                  }}
+                  style={styles.smallButton}
+                >
+                  <Text selectable style={styles.smallButtonText}>
+                    수정
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityLabel={`${session.name} 보관`}
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isPending }}
+                  disabled={isPending}
+                  onPress={(event) => {
+                    stopNestedCardAction(event);
+                    void handleArchiveSession(session);
+                  }}
+                  style={styles.smallButton}
+                >
+                  <Archive color={colors.primary} size={14} strokeWidth={2} />
+                  <Text selectable style={styles.smallButtonText}>
+                    보관
+                  </Text>
+                </Pressable>
+              </>
+            ) : (
+              <Pressable
+                accessibilityLabel={`${session.name} 복원`}
+                accessibilityRole="button"
+                accessibilityState={{ disabled: isPending }}
+                disabled={isPending}
+                onPress={(event) => {
+                  stopNestedCardAction(event);
+                  void handleRestoreSession(session);
+                }}
+                style={styles.smallDarkButton}
+              >
+                <RotateCcw color={colors.textInverse} size={14} strokeWidth={2} />
+                <Text selectable style={styles.smallDarkButtonText}>
+                  복원
+                </Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
+        <View style={styles.rowAction}>
+          <ChevronRight color={colors.muted} size={18} strokeWidth={2} />
+        </View>
+      </Pressable>
+    );
   }
 
   return (
@@ -216,63 +378,24 @@ export function SessionsScreen() {
           </Link>
         </View>
       ) : (
-        sessions.map((session) => (
-          <Pressable
-            accessibilityRole="link"
-            key={session.id}
-            onPress={() => handleOpenSession(session)}
-            style={styles.card}
-          >
-            {session.status === "active" ? <View style={styles.activeBar} /> : null}
-            <View style={styles.cardBody}>
-              <View style={styles.sessionPill}>
-                <History color={colors.textInverse} size={12} strokeWidth={2} />
-                <Text selectable style={styles.sessionPillText}>
-                  {formatSessionStatus(session.status)}
-                </Text>
-              </View>
-              <Text selectable style={styles.title}>
-                {session.name}
+        <>
+          {activeSessions.length > 0 ? (
+            <View style={styles.sessionSection}>
+              <Text selectable style={styles.sessionSectionTitle}>
+                진행 중 세션
               </Text>
-              <Text selectable style={styles.mutedText}>
-                {session.beanName ? `${session.beanName} · ` : ""}
-                {formatRoastRange(session.roastProfile.range)}
-              </Text>
-              <Text selectable style={styles.mutedText}>
-                최근 업데이트 {session.updatedAt.slice(0, 10)}
-              </Text>
-              <View style={styles.cardActions}>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={(event) => {
-                    stopNestedCardAction(event);
-                    handleUseSession(session);
-                  }}
-                  style={styles.smallDarkButton}
-                >
-                  <Text selectable style={styles.smallDarkButtonText}>
-                    진단에 사용
-                  </Text>
-                </Pressable>
-                <Pressable
-                  accessibilityRole="button"
-                  onPress={(event) => {
-                    stopNestedCardAction(event);
-                    handleEditSession(session);
-                  }}
-                  style={styles.smallButton}
-                >
-                  <Text selectable style={styles.smallButtonText}>
-                    수정
-                  </Text>
-                </Pressable>
-              </View>
+              {activeSessions.map(renderSessionCard)}
             </View>
-            <View style={styles.rowAction}>
-              <ChevronRight color={colors.muted} size={18} strokeWidth={2} />
+          ) : null}
+          {archivedSessions.length > 0 ? (
+            <View style={styles.sessionSection}>
+              <Text selectable style={styles.sessionSectionTitle}>
+                보관된 세션
+              </Text>
+              {archivedSessions.map(renderSessionCard)}
             </View>
-          </Pressable>
-        ))
+          ) : null}
+        </>
       )}
     </ScrollView>
   );
@@ -322,6 +445,13 @@ function createStyles(colors: AppColors) {
     borderRadius: radius.sm,
     borderWidth: 1,
     backgroundColor: colors.surface,
+  },
+  sessionSection: {
+    gap: spacing.sm,
+  },
+  sessionSectionTitle: {
+    ...typography.label,
+    color: colors.text,
   },
   rowAction: {
     alignItems: "center",
@@ -473,6 +603,9 @@ function createStyles(colors: AppColors) {
     paddingTop: spacing.xs,
   },
   smallDarkButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
     minHeight: 34,
     justifyContent: "center",
     borderRadius: radius.sm,
@@ -484,6 +617,9 @@ function createStyles(colors: AppColors) {
     color: colors.textInverse,
   },
   smallButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.xs,
     minHeight: 34,
     justifyContent: "center",
     borderColor: colors.border,

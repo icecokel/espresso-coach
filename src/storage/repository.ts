@@ -3,6 +3,8 @@ import type { BeanSession, DateTimeString, RoastProfile, ShotRecord } from "../d
 
 export type ShotRecordDraft = Omit<ShotRecord, "shotNumber">;
 
+export const ARCHIVED_SESSION_SHOT_ERROR = "Archived sessions cannot save shots";
+
 export interface EspressoCoachRepository {
   createSession(session: BeanSession): Promise<BeanSession>;
   updateSession(
@@ -12,6 +14,7 @@ export interface EspressoCoachRepository {
     >,
   ): Promise<BeanSession>;
   archiveSession(sessionId: string): Promise<BeanSession>;
+  restoreSession(sessionId: string): Promise<BeanSession>;
   listSessions(): Promise<BeanSession[]>;
   getSession(sessionId: string): Promise<BeanSession | undefined>;
   createShot(shot: ShotRecord): Promise<ShotRecord>;
@@ -81,6 +84,17 @@ export function createMemoryRepository(
       return clone(archived);
     },
 
+    async restoreSession(sessionId) {
+      const existing = getRequiredSession(sessions, sessionId);
+      const restored: BeanSession = {
+        ...existing,
+        status: "active",
+        updatedAt: now(),
+      };
+      sessions.set(sessionId, clone(restored));
+      return clone(restored);
+    },
+
     async listSessions() {
       return [...sessions.values()]
         .sort((left, right) => right.updatedAt.localeCompare(left.updatedAt))
@@ -94,14 +108,14 @@ export function createMemoryRepository(
 
     async createShot(shot) {
       validateShotForStorage(shot);
-      getRequiredSession(sessions, shot.sessionId);
+      requireActiveSession(getRequiredSession(sessions, shot.sessionId));
       const stored = clone(shot);
       shots.set(stored.id, stored);
       return clone(stored);
     },
 
     async createShotWithNextNumber(shot) {
-      getRequiredSession(sessions, shot.sessionId);
+      requireActiveSession(getRequiredSession(sessions, shot.sessionId));
       const nextShotNumber =
         [...shots.values()]
           .filter((item) => item.sessionId === shot.sessionId)
@@ -138,6 +152,14 @@ function getRequiredSession(
   if (!session) {
     throw new Error(`BeanSession not found: ${sessionId}`);
   }
+  return session;
+}
+
+function requireActiveSession(session: BeanSession): BeanSession {
+  if (session.status === "archived") {
+    throw new Error(ARCHIVED_SESSION_SHOT_ERROR);
+  }
+
   return session;
 }
 

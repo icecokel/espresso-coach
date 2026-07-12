@@ -1,6 +1,7 @@
 import { openDatabaseAsync, type SQLiteDatabase } from "expo-sqlite";
 import type { BeanSession, ShotRecord } from "../domain/types";
 import {
+  ARCHIVED_SESSION_SHOT_ERROR,
   type EspressoCoachRepository,
   type RepositoryOptions,
   validateShotForStorage,
@@ -167,14 +168,40 @@ export function createNativeRepository(
     },
 
     async updateSession(sessionId, patch) {
-      const existing = await getRequiredSession(sessionId);
-      const updated: BeanSession = {
-        ...existing,
-        ...patch,
-        updatedAt: now(),
-      };
-      await updateStoredSession(updated);
-      return clone(updated);
+      const database = await getDatabase();
+      let updatedSession: BeanSession | undefined;
+
+      await database.withExclusiveTransactionAsync(async (transaction) => {
+        const sessionRow = await transaction.getFirstAsync<StoredSessionRow>(
+          `SELECT * FROM bean_sessions WHERE id = ?`,
+          sessionId,
+        );
+        if (!sessionRow) {
+          throw new Error(`BeanSession not found: ${sessionId}`);
+        }
+
+        const updated: BeanSession = {
+          ...parseStoredJson<BeanSession>(sessionRow.data),
+          ...patch,
+          status: sessionRow.status,
+          updatedAt: now(),
+        };
+        await transaction.runAsync(
+          `UPDATE bean_sessions
+              SET data = ?, status = ?, updated_at = ?
+            WHERE id = ?`,
+          JSON.stringify(updated),
+          updated.status,
+          updated.updatedAt,
+          updated.id,
+        );
+        updatedSession = clone(updated);
+      });
+
+      if (!updatedSession) {
+        throw new Error(`BeanSession not found: ${sessionId}`);
+      }
+      return updatedSession;
     },
 
     async archiveSession(sessionId) {
@@ -186,6 +213,17 @@ export function createNativeRepository(
       };
       await updateStoredSession(archived);
       return clone(archived);
+    },
+
+    async restoreSession(sessionId) {
+      const existing = await getRequiredSession(sessionId);
+      const restored: BeanSession = {
+        ...existing,
+        status: "active",
+        updatedAt: now(),
+      };
+      await updateStoredSession(restored);
+      return clone(restored);
     },
 
     async listSessions() {
@@ -207,19 +245,31 @@ export function createNativeRepository(
 
     async createShot(shot) {
       validateShotForStorage(shot);
-      await getRequiredSession(shot.sessionId);
       const database = await getDatabase();
-      await database.runAsync(
-        `INSERT INTO shot_records
-          (id, session_id, shot_number, data, pulled_at, created_at)
-         VALUES (?, ?, ?, ?, ?, ?)`,
-        shot.id,
-        shot.sessionId,
-        shot.shotNumber,
-        JSON.stringify(shot),
-        shot.pulledAt,
-        shot.createdAt,
-      );
+      await database.withExclusiveTransactionAsync(async (transaction) => {
+        const sessionRow = await transaction.getFirstAsync<StoredSessionRow>(
+          `SELECT * FROM bean_sessions WHERE id = ?`,
+          shot.sessionId,
+        );
+        if (!sessionRow) {
+          throw new Error(`BeanSession not found: ${shot.sessionId}`);
+        }
+        if (sessionRow.status === "archived") {
+          throw new Error(ARCHIVED_SESSION_SHOT_ERROR);
+        }
+
+        await transaction.runAsync(
+          `INSERT INTO shot_records
+            (id, session_id, shot_number, data, pulled_at, created_at)
+           VALUES (?, ?, ?, ?, ?, ?)`,
+          shot.id,
+          shot.sessionId,
+          shot.shotNumber,
+          JSON.stringify(shot),
+          shot.pulledAt,
+          shot.createdAt,
+        );
+      });
       return clone(shot);
     },
 
@@ -234,6 +284,9 @@ export function createNativeRepository(
         );
         if (!sessionRow) {
           throw new Error(`BeanSession not found: ${shot.sessionId}`);
+        }
+        if (sessionRow.status === "archived") {
+          throw new Error(ARCHIVED_SESSION_SHOT_ERROR);
         }
 
         const row = await transaction.getFirstAsync<{ nextShotNumber: number }>(
