@@ -33,14 +33,17 @@ import {
   type InputWarningConfirmation,
   validateQuickDiagnosisInput,
 } from "../../domain/quickDiagnosis";
+import { buildShotChangesFromComparison } from "../../domain/shotComparison";
 import { parseTasteDescription } from "../../domain/taste";
 import type {
   BeanSession,
+  Extraction,
   ExtractionInputWarningCode,
   PrepObservationId,
   RoastRange,
   ShotChange,
   ShotChangeDirection,
+  ShotChangeResult,
   ShotChangeVariable,
   ShotRecord,
 } from "../../domain/types";
@@ -71,6 +74,7 @@ interface FormState {
   prepObservations: PrepObservationId[];
   changedVariable: "none" | "unknown" | ShotChangeVariable;
   changeDirection: ShotChangeDirection;
+  changeResult: ShotChangeResult;
 }
 
 interface SessionFormState {
@@ -89,6 +93,7 @@ const initialFormState: FormState = {
   prepObservations: [],
   changedVariable: "none",
   changeDirection: "unknown",
+  changeResult: "unknown",
 };
 
 const initialSessionFormState: SessionFormState = {
@@ -109,6 +114,26 @@ const prepOptions: Array<{ id: PrepObservationId; label: string }> = [
   { id: "tilted_tamp", label: "탬핑 기울음" },
   { id: "uneven_distribution", label: "분배 불균일" },
   { id: "not_sure", label: "모름" },
+];
+
+const changeVariableOptions: Array<{
+  value: FormState["changedVariable"];
+  label: string;
+}> = [
+  { value: "none", label: "변경 없음" },
+  { value: "unknown", label: "모름" },
+  { value: "grind_size", label: "분쇄도" },
+  { value: "dose", label: "도징량" },
+  { value: "yield", label: "추출량" },
+  { value: "distribution", label: "분배" },
+  { value: "tamping_consistency", label: "탬핑" },
+  { value: "puck_prep", label: "퍽 준비" },
+];
+
+const changeResultOptions: Array<{ value: ShotChangeResult; label: string }> = [
+  { value: "unknown", label: "결과 모름" },
+  { value: "improved", label: "개선됨" },
+  { value: "worse", label: "나빠짐" },
 ];
 
 export function QuickDiagnosisScreen() {
@@ -134,6 +159,15 @@ export function QuickDiagnosisScreen() {
   const [activeSession, setActiveSession] = useState<BeanSession | null>(null);
   const [recentShots, setRecentShots] = useState<ShotRecord[]>([]);
   const nextShotNumber = recentShots.length + 1;
+  const previousShot = recentShots[recentShots.length - 1];
+  const currentMeasuredExtraction = {
+    doseGrams: parseNumber(form.doseGrams),
+    yieldGrams: parseNumber(form.yieldGrams),
+  };
+  const detectedMeasuredChanges = buildShotChangesFromComparison({
+    previousShot,
+    currentExtraction: currentMeasuredExtraction,
+  });
   const tasteTagPreview = formatTasteTagPreview(
     parseTasteDescription(form.tasteDescription).tasteTags,
   );
@@ -255,7 +289,7 @@ export function QuickDiagnosisScreen() {
       const { tasteTags, tastePatterns } = parseTasteDescription(
         extraction.tasteDescription,
       );
-      const changesFromPrevious = buildShotChanges(form);
+      const changesFromPrevious = buildShotChanges(form, previousShot, extraction);
       const recommendation = buildRecommendation({
         session,
         extraction,
@@ -605,6 +639,17 @@ export function QuickDiagnosisScreen() {
             error={errors.brewSeconds}
           />
         </View>
+        {previousShot
+          ? detectedMeasuredChanges.map((change) => (
+              <Text key={change.variable} selectable style={styles.mutedText}>
+                {formatDetectedMeasuredChange(
+                  change,
+                  previousShot.extraction,
+                  currentMeasuredExtraction,
+                )}
+              </Text>
+            ))
+          : null}
       </View>
 
       <View style={styles.form}>
@@ -668,37 +713,34 @@ export function QuickDiagnosisScreen() {
             직전 샷 변경
           </Text>
           <View style={styles.optionGrid}>
-            {[
-              ["none", "변경 없음"],
-              ["unknown", "모름"],
-              ["grind_size", "분쇄도"],
-              ["dose", "도징량"],
-              ["yield", "추출량"],
-              ["distribution", "분배"],
-              ["tamping_consistency", "탬핑"],
-              ["puck_prep", "퍽 준비"],
-            ].map(([value, label]) => (
+            {changeVariableOptions.map((option) => (
               <Pressable
-                key={value}
+                accessibilityRole="radio"
+                accessibilityState={{
+                  selected: form.changedVariable === option.value,
+                }}
+                key={option.value}
                 onPress={() =>
                   setForm({
                     ...form,
-                    changedVariable: value as FormState["changedVariable"],
+                    changedVariable: option.value,
+                    changeDirection: "unknown",
+                    changeResult: "unknown",
                   })
                 }
                 style={[
                   styles.option,
-                  form.changedVariable === value && styles.optionSelected,
+                  form.changedVariable === option.value && styles.optionSelected,
                 ]}
               >
                 <Text
                   selectable
                   style={[
                     styles.optionText,
-                    form.changedVariable === value && styles.optionTextSelected,
+                    form.changedVariable === option.value && styles.optionTextSelected,
                   ]}
                 >
-                  {label}
+                  {option.label}
                 </Text>
               </Pressable>
             ))}
@@ -706,47 +748,80 @@ export function QuickDiagnosisScreen() {
         </View>
 
         {form.changedVariable !== "none" && form.changedVariable !== "unknown" ? (
-          <View style={styles.group}>
-            <Text selectable style={styles.label}>
-              변경 방향/결과
-            </Text>
-            <View style={styles.optionGrid}>
-              {[
-                ["unknown", "방향 모름"],
-                ["finer", "더 곱게"],
-                ["coarser", "더 굵게"],
-                ["increase", "늘림"],
-                ["decrease", "줄임"],
-                ["improved", "개선됨"],
-                ["worse", "나빠짐"],
-                ["changed", "바꿈"],
-              ].map(([value, label]) => (
-                <Pressable
-                  key={value}
-                  onPress={() =>
-                    setForm({
-                      ...form,
-                      changeDirection: value as ShotChangeDirection,
-                    })
-                  }
-                  style={[
-                    styles.option,
-                    form.changeDirection === value && styles.optionSelected,
-                  ]}
-                >
-                  <Text
-                    selectable
+          <>
+            <View style={styles.group}>
+              <Text selectable style={styles.label}>
+                변경 방향
+              </Text>
+              <View style={styles.optionGrid}>
+                {getChangeDirectionOptions(form.changedVariable).map((option) => (
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{
+                      selected: form.changeDirection === option.value,
+                    }}
+                    key={option.value}
+                    onPress={() =>
+                      setForm({
+                        ...form,
+                        changeDirection: option.value,
+                      })
+                    }
                     style={[
-                      styles.optionText,
-                      form.changeDirection === value && styles.optionTextSelected,
+                      styles.option,
+                      form.changeDirection === option.value && styles.optionSelected,
                     ]}
                   >
-                    {label}
-                  </Text>
-                </Pressable>
-              ))}
+                    <Text
+                      selectable
+                      style={[
+                        styles.optionText,
+                        form.changeDirection === option.value && styles.optionTextSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
             </View>
-          </View>
+            <View style={styles.group}>
+              <Text selectable style={styles.label}>
+                결과
+              </Text>
+              <View style={styles.optionGrid}>
+                {changeResultOptions.map((option) => (
+                  <Pressable
+                    accessibilityRole="radio"
+                    accessibilityState={{
+                      selected: form.changeResult === option.value,
+                    }}
+                    key={option.value}
+                    onPress={() =>
+                      setForm({
+                        ...form,
+                        changeResult: option.value,
+                      })
+                    }
+                    style={[
+                      styles.option,
+                      form.changeResult === option.value && styles.optionSelected,
+                    ]}
+                  >
+                    <Text
+                      selectable
+                      style={[
+                        styles.optionText,
+                        form.changeResult === option.value && styles.optionTextSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+          </>
         ) : null}
 
         {submitError ? (
@@ -920,16 +995,71 @@ function parseNumber(value: string): number {
   return Number(value);
 }
 
-function buildShotChanges(form: FormState): ShotChange[] {
+function buildShotChanges(
+  form: FormState,
+  previousShot: ShotRecord | undefined,
+  currentExtraction: Extraction,
+): ShotChange[] {
+  return buildShotChangesFromComparison({
+    previousShot,
+    currentExtraction,
+    manualChange: buildManualShotChange(form),
+  });
+}
+
+function buildManualShotChange(form: FormState): ShotChange | undefined {
   if (form.changedVariable === "none" || form.changedVariable === "unknown") {
-    return [];
+    return undefined;
   }
+  return {
+    variable: form.changedVariable,
+    direction: form.changeDirection,
+    result: form.changeResult,
+  };
+}
+
+function getChangeDirectionOptions(
+  variable: FormState["changedVariable"],
+): Array<{ value: ShotChangeDirection; label: string }> {
+  if (variable === "grind_size") {
+    return [
+      { value: "unknown", label: "방향 모름" },
+      { value: "finer", label: "더 곱게" },
+      { value: "coarser", label: "더 굵게" },
+    ];
+  }
+
+  if (variable === "dose" || variable === "yield") {
+    return [
+      { value: "unknown", label: "방향 모름" },
+      { value: "increase", label: "늘림" },
+      { value: "decrease", label: "줄임" },
+    ];
+  }
+
   return [
-    {
-      variable: form.changedVariable,
-      direction: form.changeDirection,
-    },
+    { value: "unknown", label: "방향 모름" },
+    { value: "changed", label: "바꿈" },
   ];
+}
+
+function formatDetectedMeasuredChange(
+  change: Pick<ShotChange, "variable" | "direction">,
+  previousExtraction: Pick<Extraction, "doseGrams" | "yieldGrams">,
+  currentExtraction: Pick<Extraction, "doseGrams" | "yieldGrams">,
+): string {
+  const previousValue =
+    change.variable === "dose"
+      ? previousExtraction.doseGrams
+      : previousExtraction.yieldGrams;
+  const currentValue =
+    change.variable === "dose"
+      ? currentExtraction.doseGrams
+      : currentExtraction.yieldGrams;
+  const label = change.variable === "dose" ? "도징량" : "추출량";
+  const direction = change.direction === "increase" ? "늘림" : "줄임";
+
+  return `${label} ${previousValue}g → ${currentValue}g · ${direction}`;
 }
 
 function getRouteSessionId(value: string | string[] | undefined): string | undefined {
