@@ -1,0 +1,13 @@
+#!/usr/bin/env sh
+set -eu
+
+if [ "${SKIP_PREPUSH_E2E:-}" = "1" ]; then
+  printf '%s\n' "Skipping pre-push E2E because SKIP_PREPUSH_E2E=1."
+  exit 0
+fi
+
+repo_root="$(git rev-parse --show-toplevel)"
+cd "$repo_root"
+
+printf '%s\n' "Running Playwright E2E before push..."
+npm run test:e2e

@@ -17,7 +17,8 @@
     "test": "npm run test:unit && npm run test:e2e:runner",
     "pretest:e2e": "playwright install chromium",
     "test:e2e": "sh scripts/run-e2e.sh",
-    "test:e2e:runner": "node scripts/e2e-runner.test.mjs"
+    "test:e2e:runner": "node scripts/e2e-runner.test.mjs",
+    "setup:hooks": "sh scripts/install-git-hooks.sh"
   },
   "dependencies": {
     "expo": "~56.0.15",

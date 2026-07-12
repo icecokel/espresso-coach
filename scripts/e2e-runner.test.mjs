@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { mkdtemp, readFile, rm, writeFile, chmod } from "node:fs/promises";
+import { access, mkdtemp, readFile, rm, writeFile, chmod } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
@@ -7,6 +7,8 @@ import { spawnSync } from "node:child_process";
 const root = process.cwd();
 const packageJson = JSON.parse(await readFile(resolve(root, "package.json"), "utf8"));
 const runner = resolve(root, "scripts/run-e2e.sh");
+const prePushHook = resolve(root, ".githooks/pre-push");
+const installHooks = resolve(root, "scripts/install-git-hooks.sh");
 
 assert.equal(
   packageJson.scripts["pretest:e2e"],
@@ -18,6 +20,22 @@ assert.equal(
   "sh scripts/run-e2e.sh",
   "E2E must use the runner with failure-aware artifact cleanup",
 );
+assert.equal(
+  packageJson.scripts["setup:hooks"],
+  "sh scripts/install-git-hooks.sh",
+  "the repository must provide a reproducible Git hook setup command",
+);
+
+await access(prePushHook);
+await access(installHooks);
+
+const [prePushContents, installHooksContents] = await Promise.all([
+  readFile(prePushHook, "utf8"),
+  readFile(installHooks, "utf8"),
+]);
+assert.match(prePushContents, /npm run test:e2e/);
+assert.match(prePushContents, /SKIP_PREPUSH_E2E/);
+assert.match(installHooksContents, /config core\.hooksPath \.githooks/);
 
 async function runRunner(testStatus) {
   const binDir = await mkdtemp(join(tmpdir(), "espresso-coach-e2e-bin-"));

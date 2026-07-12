@@ -42,6 +42,14 @@ npm audit
 git diff --check
 ```
 
+push 전에 Playwright E2E를 자동 실행하려면, clone한 각 작업 환경에서 한 번 아래 명령을 실행한다.
+
+```bash
+npm run setup:hooks
+```
+
+이후 `git push`는 `npm run test:e2e`를 완료해야 진행된다. 긴급하게 우회해야 할 때만 `SKIP_PREPUSH_E2E=1 git push`를 사용한다.
+
 2026-07-12 재검증은 Node.js `v26.5.0` / npm `11.17.0`에서 수행했다. `npm ci`는 `EBADENGINE` 경고 없이 성공했고, npm의 `allow-scripts` pending 안내는 출력됐지만 설치와 audit은 성공했다. `npm exec expo-doctor`(21/21 checks), `npm audit`(0 vulnerabilities), `git diff --check`가 모두 통과했다. 2026-07-13에는 `npm run lint`, `npm test`(10 unit test files / 57 unit tests와 E2E runner contract), `npm run test:e2e`(Expo web export 기반 Playwright 16 scenarios)를 다시 통과했다. `npm run test:e2e`는 Chromium을 먼저 설치하고, 성공하면 `dist/`와 `output/playwright/`를 정리하며 실패 artifact는 보존한다.
 
 web target은 현재 production web app이 아니라 로컬 자동 E2E와 번들 검증용 target이다. 실기기 고유 동작과 설치 앱 동작은 Expo Go 또는 EAS preview build로 추가 확인해야 한다.
