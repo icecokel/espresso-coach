@@ -16,11 +16,12 @@ Last reviewed: 2026-07-12
 | --- | --- | --- |
 | `npm ci` | Pass | Node.js `v26.5.0` / npm `11.17.0`; `EBADENGINE` warning 없음. npm의 `allow-scripts` pending 안내는 출력됐지만 설치와 audit은 성공. |
 | `npm run lint` | Pass | TypeScript compile 통과 |
-| `npm test` | Pass | 9 test files / 43 tests와 E2E runner contract |
-| `npm run test:e2e` | Pass | Chromium preinstall, Expo web export, Playwright 5 input-safety scenarios; 성공 시 `dist/`, `output/playwright/` 정리, 실패 artifact 보존 |
+| `npm test` | Pass | 10 unit test files / 57 unit tests와 E2E runner contract |
+| `npm run test:e2e` | Pass | Chromium preinstall, Expo web export, Playwright 7 scenarios; 성공 시 `dist/`, `output/playwright/` 정리, 실패 artifact 보존 |
 | Historical local web runtime smoke test | Pass | 2026-07-04 수동 Playwright 기록: validation, 빠른 진단, 다중 샷, 세션 편집/선택, 모바일 viewport, not-found route |
 | `npm exec expo-doctor` | Pass, 21/21 checks | Expo SDK dependency 정합성 확인 |
 | `npm audit` | Pass | 0 vulnerabilities |
+| `git diff --check` | Pass | working tree whitespace 오류 없음 |
 
 현재 앱의 강점:
 
@@ -29,6 +30,8 @@ Last reviewed: 2026-07-12
 - MVP guardrail인 "다음 샷에서 하나만 조정" 원칙이 도메인 로직과 화면 copy에 반영되어 있다.
 - 빠른 진단에서 맛 해석 preview를 보여줘 사용자가 parser 결과를 확인할 수 있다.
 - 추천 상세의 `다음 샷 기록`은 같은 세션을 `sessionId`로 이어간다.
+- 이전 샷의 유효한 dose/yield 변화는 자동 기록하고, 수동 변경은 같은 변수를 덮어쓴다. 방향과 결과는 별도 입력으로 추천에 반영된다.
+- 세션 보관/복원, archived session의 진단 제외, native transactional shot-write 차단이 구현·자동 검증됐다.
 - Expo/React Native 화면, SQLite 저장소, web export target이 기본 형태로 존재한다.
 - 폰트 loading/error/ready 상태는 pure state test 3개와 app fallback UI로 분리되어 있고, error state는 retry UI를 제공한다.
 
@@ -39,12 +42,12 @@ Last reviewed: 2026-07-12
 - persistent web product가 필요해지면 별도 IndexedDB adapter 또는 backend 저장소를 설계한다.
 - 빠른 진단 저장 경로는 `createShotWithNextNumber`를 사용해 shot number 할당과 저장을 repository boundary로 묶는다. native runtime의 실제 transaction 동작은 아직 Expo Go 또는 설치 앱에서 확인하지 못했다.
 - font error state를 browser E2E에서 직접 주입하는 검증은 아직 없다.
-- 제품 피드백 loop와 session archive UX는 아직 제품 흐름으로 구현하거나 검증하지 않았다.
+- 제품 피드백 loop와 실제 사용자 데이터 기반 추천 품질 평가는 아직 없다. 세션 삭제 정책도 아직 결정하지 않았다.
 - `package.json` engine 범위는 선언됐지만, 코드와 CI/tooling에서 Node runtime version을 고정하는 정책은 아직 없다.
 
 ## Current Phase Boundary
 
-이번 Stage 1에서 완료로 보는 범위:
+이번 Stage 1과 Stage 2에서 완료로 보는 범위:
 
 - Expo SDK 정합성, clean install, lint, unit test, expo-doctor, dependency audit
 - 검증 문서와 README의 current stage 정합성
@@ -54,12 +57,14 @@ Last reviewed: 2026-07-12
 - Expo/React Native MVP 기본 구현, 세션 생성/선택/편집, 배전 범위 입력 연결
 - 빠른 진단 맛 해석 preview, 같은 세션 다음 샷 기록, action/variable label formatter 공통화
 - SQLite FK/unique/index/transaction boundary와 native repository mock 단위 검증
+- 이전 샷 자동 비교, 수동 same-variable override, 방향/결과 분리와 결과 기반 추천 보정
+- 세션 보관/복원, archived session 진단 제외, stale route 저장 차단, archive/restore web E2E
 
 다음 페이즈로 이관하는 범위:
 
 - Expo Go, simulator/emulator, EAS preview build 실기기 검증
-- 고급 모드 UI, 제품 피드백 loop, 실험 결과 모델
-- session archive UX
+- 고급 모드 UI, 제품 피드백 loop, 추천 품질 평가, 실험 결과 모델
+- 세션 삭제 정책
 - persistent web product 저장소, export/sync
 - 코드와 CI/tooling에서 Node runtime version을 고정하는 정책
 
@@ -86,14 +91,14 @@ Last reviewed: 2026-07-12
 | P1 | README의 current stage 문구 갱신 | README가 현재 통과 범위와 미검증 범위를 정확히 말해야 한다. | Done: Stage 1 완료와 다음 RN MVP phase 구분 |
 | P1 | `npm audit` 결과 triage | dependency vulnerability 결과를 현재 lockfile 기준으로 확인한다. | Done: `npm audit` 0 vulnerabilities |
 | P1 | web export 산출물 정리 정책 확인 | `dist/`는 임시 산출물이며 git에 남기지 않는다. | Done: 성공 시 `dist/`, `output/playwright/` 정리; 실패 artifact 보존 |
-| P1 | 입력 안전성 E2E | 범위 밖 입력은 저장 전 명시적 확인이 필요하고 중복 navigation을 만들면 안 된다. | Done: Playwright 5 scenarios |
+| P1 | 입력 안전성 E2E | 범위 밖 입력은 저장 전 명시적 확인이 필요하고 중복 navigation을 만들면 안 된다. | Done: input warning Playwright 5 scenarios |
 | P1 | font fallback | 폰트 loading/error가 앱 shell을 막지 않고 recovery path를 제공해야 한다. | Done: pure state 3 tests와 loading/error/retry UI; browser error injection E2E는 미포함 |
 
 ### Completion Criteria
 
 - `npm run lint` 통과
 - `npm test` 통과
-- `npm run test:e2e` 통과: Chromium preinstall, Expo web export, Playwright 5 scenarios
+- `npm run test:e2e` 통과: Chromium preinstall, Expo web export, Playwright 7 scenarios
 - `npm exec expo-doctor` 21/21 통과
 - `docs/planning/verification-status.md`가 실제 검증 결과와 일치
 - `npm audit` 0 vulnerabilities
@@ -115,11 +120,12 @@ Last reviewed: 2026-07-12
 | --- | --- | --- | --- |
 | P0 | 원두 세션 생성/선택 흐름 추가 | Done | 세션 생성, 선택, 현재 세션 표시, 이름/원두 정보 수정 |
 | P0 | 배전 범위 입력 UI 연결 | Done | `RoastProfile.range`, `confidence`, `source`를 세션에 저장하는 기본 UI |
-| P1 | 빠른 진단 화면의 optional field 정리 | Done | 분쇄도, 퍽/흐름, 직전 변경값의 label, default, 저장 mapping 정리 |
+| P1 | 구조화된 이전 샷 feedback | Done | valid dose/yield 자동 비교, 수동 same-variable override, 방향/결과 분리, 결과 기반 추천 보정 |
 | P1 | detail 화면 loading/empty/error 상태 분리 | Done | 샷 상세, 세션 상세의 loading, not found, load error UI |
 | P1 | keyboard/safe area/CTA 동작 점검 | Next phase | Expo Go smoke test에서 입력 필드와 하단 CTA 확인 |
-| P1 | 제품 피드백 loop | Next phase | 실제 사용자 feedback 수집, 추천 품질 평가, 후속 action 연결 |
-| P2 | session archive UX | Next phase | 장기 보관 세션의 탐색, 복원, 삭제 정책 |
+| P1 | 제품 피드백 loop와 추천 품질 평가 | Next phase | 실제 사용자 feedback 수집, 추천 품질 평가, 후속 action 연결 |
+| P1 | session archive/restore UX | Done | 보관/복원, archived session 조회 유지, 진단·shot write 차단, web E2E |
+| P2 | 세션 삭제 정책 | Next phase | 장기 보관 세션의 삭제 기준과 사용자 확인 흐름 결정 |
 | P2 | action/variable label formatter 공통화 | Done | `src/native/formatters.ts` shared formatter |
 | P2 | web persistence 방향 유지 | Next phase | web product 전환 시 IndexedDB adapter 또는 backend 저장소를 별도 설계 |
 
@@ -129,6 +135,7 @@ Last reviewed: 2026-07-12
 - 빠른 진단으로 생성된 샷이 올바른 세션에 저장된다.
 - 배전 범위가 추천 input의 `session.roastProfile`로 연결된다.
 - 샷 상세와 세션 상세에서 loading, empty, error가 구분된다.
+- 보관된 세션은 detail에서 조회·복원할 수 있고, 진단 선택과 shot write는 거부된다.
 - Expo Go에서 필수 입력, 추천 생성, 저장, 재실행 후 기록 확인은 다음 페이즈 smoke test에서 확인한다.
 
 ### Notes
@@ -148,7 +155,7 @@ MVP를 반복 개발하고 preview build로 검증할 수 있도록 저장소, �
 | Priority | Work | Status | Output |
 | --- | --- | --- | --- |
 | P0 | SQLite schema 무결성 보강 | Done | `session_id` FK, `(session_id, shot_number)` unique/index, 호환 trigger |
-| P0 | shot 생성 transaction 적용 | Done | `createShotWithNextNumber` repository API와 native exclusive transaction 경계 |
+| P0 | shot 생성 transaction 및 archive guard | Done | direct/next shot write의 native exclusive transaction과 archived session 차단 |
 | P1 | native repository 검증 보강 | Done | native adapter mock 단위 테스트 |
 | P1 | EAS preview build 실행/설치 검증 | Next phase | preview profile로 Android/iOS artifact를 만들고 설치 확인 |
 | P1 | 실기기 검증 결과 문서화 | Next phase | Expo Go / simulator / EAS preview 검증 기록 |
@@ -178,7 +185,7 @@ MVP를 반복 개발하고 preview build로 검증할 수 있도록 저장소, �
 5. Android/iOS preview artifact 설치 테스트
 6. 실기기/EAS 검증 결과 문서화
 7. Node runtime version policy를 코드와 CI/tooling에 적용
-8. 고급 모드, 제품 피드백 loop, session archive UX, 실험 결과 모델 설계
+8. 고급 모드, 제품 피드백 loop, 추천 품질 평가, 세션 삭제 정책, 실험 결과 모델 설계
 
 ## Related Documents
 

@@ -134,7 +134,7 @@ Warning은 추천을 금지하지 않는다. MVP는 입문자 이탈을 줄이�
 | `brewRatioBand` | `<1.7 low`, `1.7-2.3 target`, `>2.3 high` | `ShotRecord.extraction.brewRatioBand` | `2.0 = target` |
 | `inputWarnings` | warning validation 결과의 code 배열 | `ShotRecord.extraction.inputWarnings` | `[]` |
 | `shotNumber` | 세션 내 기존 샷 수 + 1 | `ShotRecord.shotNumber` | `3` |
-| `hasPreviousShot` | 세션 내 직전 샷 존재 여부 | 저장하지 않음. UI 표시와 `changesFromPrevious` 노출 판단에만 사용 | `true` |
+| `hasPreviousShot` | 세션 내 직전 샷 존재 여부 | 저장하지 않음. valid dose/yield 자동 비교와 수동 이전 샷 입력 노출 판단에만 사용 | `true` |
 | `tasteTags` | `tasteDescription` 규칙 기반 파싱 결과 | `ShotRecord.tasteTags` | `[{ "id": "sour", ... }]` |
 | `tastePatterns` | `tasteTags` 조합에서 파생 | `ShotRecord.tastePatterns` | `[{ "id": "weak_and_sour", ... }]` |
 | `recommendation` | 저장 직전 추천 로직 결과 | `ShotRecord.recommendation` | `primary` 1개 포함 |
@@ -151,20 +151,21 @@ Warning은 추천을 금지하지 않는다. MVP는 입문자 이탈을 줄이�
 | `ShotRecord.basicObservation.prepIssue` | `unknown` |
 | `ShotRecord.basicObservation.prepIssueTypes` | `[]` |
 | `ShotRecord.advancedObservation` | `null` when no advanced field is entered |
-| `ShotRecord.changesFromPrevious` | `[]` for first shot, no change, or unknown change |
+| `ShotRecord.changesFromPrevious` | 첫 샷 또는 자동/수동 변경이 없을 때 `[]` |
 | `ShotRecord.extraction.inputWarnings` | `[]` when no warning rule matches |
 
 ## Submission Behavior
 
 1. 필수값 validation을 통과한다.
-2. 연결된 세션이 없으면 자동으로 `BeanSession`을 만들고, `roastProfile` 입력이 없으면 unknown default를 저장한다.
+2. 세션 로딩이 끝난 뒤 active 세션을 사용한다. 연결된 세션이 없을 때만 자동으로 `BeanSession`을 만들고, 보관된 세션은 복원 전 샷 저장을 차단한다.
 3. 맛 설명을 규칙 기반 맛 태그로 변환한다.
 4. `brewRatio`, `brewTimeBand`, `brewRatioBand`, `inputWarnings`를 계산한다.
 5. `prepObservations`에서 `BasicObservation` 요약값을 파생한다.
-6. 고급 입력이 없으면 `advancedObservation = null`로 둔다.
-7. 애매하거나 복합적인 문장은 LLM 보정 후보로 표시할 수 있다.
-8. 추천 로직에는 구조화된 입력값, 맛 태그, 맛 패턴, 선택 관찰값, 직전 샷 변경값을 전달한다.
-9. 추천 결과는 한 번에 하나의 변수만 우선 조정하도록 표시하고 `ShotRecord.recommendation`에 저장한다.
+6. 유효한 직전 샷이 있으면 dose/yield 변화를 자동으로 비교하고, 수동 변경이 같은 변수면 수동값으로 교체한다.
+7. 고급 입력이 없으면 `advancedObservation = null`로 둔다.
+8. 애매하거나 복합적인 문장은 LLM 보정 후보로 표시할 수 있다.
+9. 추천 로직에는 구조화된 입력값, 맛 태그, 맛 패턴, 선택 관찰값, 직전 샷 변경값을 전달한다.
+10. 추천 결과는 한 번에 하나의 변수만 우선 조정하도록 표시하고 `ShotRecord.recommendation`에 저장한다.
 
 ## Storage Mapping Summary
 
@@ -185,24 +186,22 @@ Warning은 추천을 금지하지 않는다. MVP는 입문자 이탈을 줄이�
 
 ## Previous Shot Change Input
 
-두 번째 샷부터는 사용자가 직전 샷 대비 무엇을 바꿨는지 선택할 수 있다. 이 입력은 선택값이지만, 입력되면 직전 샷 비교 추천에 사용한다.
+두 번째 샷부터는 직전 샷과 현재 샷의 유효한 도징량과 추출량을 자동 비교한다. 시간은 진단 신호일 뿐 `ShotChange`로 자동 기록하지 않는다. 사용자는 추가로 변경 변수, 방향, 결과를 선택할 수 있다. 같은 변수의 수동 변경은 자동 기록을 덮어써 중복을 만들지 않는다.
 
 | Field | Label | Type | Options |
 | --- | --- | --- | --- |
-| `changedVariable` | 직전 샷에서 무엇을 바꿨나요? | enum | `none`, `unknown`, `grind_size`, `dose`, `yield`, `tamping_consistency`, `distribution`, `puck_prep`, `advanced_condition` |
-| `changeDirection` | 어느 방향으로 바꿨나요? | enum | `finer`, `coarser`, `increase`, `decrease`, `improved`, `worse`, `changed`, `unknown` |
-| `changeAmountLabel` | 어느 정도 바꿨나요? | enum | `one_small_step`, `small`, `next_shot_observation`, `none` |
-| `changeNote` | 변경 메모 | text | optional |
+| `changedVariable` | 직전 샷에서 무엇을 바꿨나요? | enum | `none`, `unknown`, `grind_size`, `dose`, `yield`, `tamping_consistency`, `distribution`, `puck_prep` |
+| `changeDirection` | 어느 방향으로 바꿨나요? | enum | 분쇄도: `finer`, `coarser`, `unknown`; dose/yield: `increase`, `decrease`, `unknown`; prep: `changed`, `unknown` |
+| `changeResult` | 조정 결과는 어땠나요? | enum | `improved`, `worse`, `unknown` |
 
 Default:
-- 첫 샷: 변경 입력을 숨기고 `changesFromPrevious = []`
-- 두 번째 샷 이후: 접힌 선택 영역으로 제공
-- 사용자가 `none` 또는 `unknown`을 선택하거나 모르면 별도 `ShotChange`를 만들지 않고 `changesFromPrevious = []`로 저장
-- `changedVariable`이 실제 변수이면 `ShotChange.variable`로 저장한다.
-- `changeDirection`은 `ShotChange.direction`으로 저장한다.
-- `changeAmountLabel`이 비어 있으면 생략하고, 입력되면 `ShotChange.amountLabel`로 저장한다.
-- `changeNote`가 비어 있으면 생략하고, 입력되면 `ShotChange.note`로 저장한다.
-- `brew_time` 또는 추출 시간 변경은 선택지로 제공하지 않는다. 시간은 `brewSeconds`와 `brewTimeBand`를 통한 진단 신호로만 사용한다.
+- 첫 샷: 자동 비교와 수동 변경이 없어 `changesFromPrevious = []`
+- 두 번째 샷 이후: valid dose/yield 숫자가 달라지면 자동 `ShotChange`를 dose, yield 순서로 기록한다.
+- 자동 비교는 dose/yield만 대상으로 하며, 현재 숫자가 유효하지 않거나 직전 샷이 없으면 만들지 않는다.
+- 사용자가 실제 변수를 선택하면 `ShotChange.variable`, `direction`, `result`로 저장한다. `none` 또는 `unknown`은 수동 `ShotChange`를 만들지 않는다.
+- 수동 변수가 자동 변수와 같으면 수동 direction/result가 자동 기록을 교체한다. 다른 수동 변수는 자동 dose/yield 뒤에 추가한다.
+- `result = improved`는 같은 방향을 약하게, `result = worse`는 grind/dose/yield의 반대 방향을 우선하는 추천 보정에 사용한다.
+- `brew_time` 또는 추출 시간 변경은 선택지나 자동 기록으로 제공하지 않는다. 시간은 `brewSeconds`와 `brewTimeBand`를 통한 진단 신호로만 사용한다.
 
 ## MVP Decisions
 
@@ -211,5 +210,5 @@ Default:
 - 고급 입력은 기본 validation을 막지 않는다.
 - 단위 입력은 자유 텍스트가 아니라 숫자 입력 + 고정 단위 표시로 처리한다.
 - 현실 범위 밖 숫자는 차단하지 않고 경고로 처리한다.
-- 직전 샷 비교는 사용자가 선택한 구조화된 변경 입력이 있을 때만 사용한다.
+- 직전 샷 비교는 자동 dose/yield 기록과 사용자가 선택한 구조화된 수동 변경을 함께 사용한다.
 - 추출 시간은 직접 변경 변수로 받지 않는다. 시간은 `brewSeconds`, `brewTimeBand`를 통해 진단 신호로만 사용한다.

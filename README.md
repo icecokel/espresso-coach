@@ -39,9 +39,10 @@ npm test
 npm run test:e2e
 npm exec expo-doctor
 npm audit
+git diff --check
 ```
 
-2026-07-12 재검증은 Node.js `v26.5.0` / npm `11.17.0`에서 수행했다. `npm ci`는 `EBADENGINE` 경고 없이 성공했고, npm의 `allow-scripts` pending 안내는 출력됐지만 설치와 audit은 성공했다. `npm run lint`, `npm test`(9 test files / 43 tests와 E2E runner contract), `npm run test:e2e`(Expo web export 기반 Playwright 5 scenarios), `npm exec expo-doctor`(21/21 checks), `npm audit`(0 vulnerabilities)가 모두 통과했다. `npm run test:e2e`는 Chromium을 먼저 설치하고, 성공하면 `dist/`와 `output/playwright/`를 정리하며 실패 artifact는 보존한다.
+2026-07-12 재검증은 Node.js `v26.5.0` / npm `11.17.0`에서 수행했다. `npm ci`는 `EBADENGINE` 경고 없이 성공했고, npm의 `allow-scripts` pending 안내는 출력됐지만 설치와 audit은 성공했다. `npm run lint`, `npm test`(10 unit test files / 57 unit tests와 E2E runner contract), `npm run test:e2e`(Expo web export 기반 Playwright 7 scenarios), `npm exec expo-doctor`(21/21 checks), `npm audit`(0 vulnerabilities), `git diff --check`가 모두 통과했다. `npm run test:e2e`는 Chromium을 먼저 설치하고, 성공하면 `dist/`와 `output/playwright/`를 정리하며 실패 artifact는 보존한다.
 
 web target은 현재 production web app이 아니라 로컬 자동 E2E와 번들 검증용 target이다. 실기기 고유 동작과 설치 앱 동작은 Expo Go 또는 EAS preview build로 추가 확인해야 한다.
 
@@ -80,6 +81,6 @@ web target은 현재 production web app이 아니라 로컬 자동 E2E와 번들
 
 ## Current Stage
 
-현재는 Expo/React Native MVP의 Stage 1 안정화와 자동 검증 정합성을 완료한 상태다. SDK 정합성, 문서, audit, web export cleanup, 입력 안전성 E2E, 폰트 loading/error/ready fallback이 완료 범위에 포함된다.
+현재는 Expo/React Native MVP의 Stage 1 안정화와 Stage 2 핵심 흐름을 완료한 상태다. 이전 샷의 유효한 도징량/추출량 자동 비교, 수동 변경의 same-variable override, 방향과 결과 분리, 결과 기반 다음 추천 보정이 포함된다. 세션은 보관·복원이 가능하며 보관된 세션은 기록 조회는 유지하되 새 샷 선택과 저장은 차단하고, native storage는 이를 transaction으로 강제한다.
 
-다음 페이즈에서는 Expo Go, simulator/emulator, EAS preview build의 실기기 검증을 먼저 수행한다. 제품 피드백 루프, session archive UX, 코드와 CI/tooling에서의 Node runtime version 고정 정책은 아직 완료하지 않았다.
+다음 페이즈에서는 Expo Go, simulator/emulator, EAS preview build의 실기기 검증을 먼저 수행한다. 제품 피드백과 추천 품질 평가, 세션 삭제 정책, 코드와 CI/tooling에서의 Node runtime version 고정 정책은 아직 완료하지 않았다.
