@@ -1,6 +1,6 @@
 # Verification Status
 
-Last updated: 2026-07-11
+Last updated: 2026-07-12
 
 ## Scope
 
@@ -8,51 +8,71 @@ Last updated: 2026-07-11
 
 검증은 세 범위로 나눈다.
 
-- Headless verification: 로컬에서 UI 조작 없이 자동 실행 가능한 정적 검사, 단위 테스트, Expo 설정 검사, 웹 번들 생성
-- Local web runtime smoke test: 웹 번들을 로컬 정적 서버로 띄운 뒤 Playwright로 주요 사용자 흐름 확인
+- Headless verification: 로컬에서 UI 조작 없이 자동 실행 가능한 설치, 정적 검사, 단위 테스트, Expo 설정 검사, dependency audit
+- Automated local web E2E: Expo web bundle을 생성하고 로컬 정적 서버에서 Playwright로 자동 확인
+- Historical local web runtime smoke test: 2026-07-04에 수동으로 기록한 Playwright 주요 사용자 흐름 확인
 - Device/build verification: Expo Go, simulator/emulator, EAS preview build, production build에서만 확인 가능한 실제 앱 동작
 
 ## Current Result
 
-2026-07-11 기준 headless 검증은 통과했다. `expo` 56.0.15와 `expo-router` 56.2.14로 SDK 56 patch dependency를 맞췄다. Local web runtime smoke test는 2026-07-04 Playwright 기록을 유지하며, 이번 SDK 정합성 갱신에서는 재실행하지 않았다.
+2026-07-12 기준 headless 검증과 자동 local web E2E가 통과했다. 검증 환경은 Node.js `v26.5.0` / npm `11.17.0`이다. `npm ci`는 `EBADENGINE` 경고 없이 성공했다. npm 11.17.0은 `allow-scripts` pending 안내를 출력했지만 설치와 audit은 성공했으며, 이는 install script 승인 상태를 안내하는 메시지로만 기록한다.
+
+2026-07-04의 수동 local web runtime smoke test 기록은 보존한다. 이 기록은 최신 자동 E2E의 대체가 아니며, 서로 다른 범위를 확인한다.
 
 | Check | Command | Result | Last confirmed |
 | --- | --- | --- | --- |
-| TypeScript compile | `npm run lint` | Pass | 2026-07-11 |
-| Unit tests | `npm test` | Pass, 8 test files / 36 tests | 2026-07-11 |
-| Expo project health | `npm exec expo-doctor` | Pass, 18/18 checks | 2026-07-11 |
-| Dependency audit | `npm audit` | Pass, 0 vulnerabilities | 2026-07-11 |
-| Web production bundle | `npx expo export --platform web` | Pass | 2026-07-11 |
-| Local web runtime smoke test | `npx --yes serve@latest -s dist -l 4173` + Playwright | Pass | 2026-07-04 |
+| Clean dependency install | `npm ci` | Pass; no `EBADENGINE` warning. npm 11.17.0 `allow-scripts` pending notice emitted. | 2026-07-12 |
+| TypeScript compile | `npm run lint` | Pass | 2026-07-12 |
+| Unit tests and E2E runner contract | `npm test` | Pass; 9 test files / 43 tests, then E2E runner cleanup contract | 2026-07-12 |
+| Automated local web E2E | `npm run test:e2e` | Pass; Chromium preinstall, Expo web export, Playwright 5 scenarios | 2026-07-12 |
+| Expo project health | `npm exec expo-doctor` | Pass, 21/21 checks | 2026-07-12 |
+| Dependency audit | `npm audit` | Pass, 0 vulnerabilities | 2026-07-12 |
+| Historical local web runtime smoke test | `npx --yes serve@latest -s dist -l 4173` + Playwright | Pass; manual record retained below | 2026-07-04 |
 
-검증 중 생성된 `dist/` 산출물은 임시 결과로 확인 후 삭제했다.
+`npm run test:e2e`는 lifecycle에서 Chromium을 설치한 뒤 Expo web export와 Playwright를 실행한다. runner는 성공 시 `dist/`와 `output/playwright/`를 정리하고, 실패 시 `dist/`만 정리해 Playwright failure artifact를 보존한다.
 
-현재 로컬 Node.js `v24.1.0`에서는 `npm install` 실행 시 React Native 0.85 계열의 engine 요구 범위보다 낮다는 `EBADENGINE` warning이 출력된다. `package.json`에는 프로젝트 권장 Node 범위를 `^20.19.4 || ^22.13.0 || ^24.3.0 || >=25.0.0`로 명시했다.
+`package.json`에는 Node 범위 `^20.19.4 || ^22.13.0 || ^24.3.0 || >=25.0.0`가 선언되어 있지만, 코드와 CI/tooling에서 특정 runtime version을 고정하는 정책은 아직 없다.
 
 ## Verified Areas
 
-Headless 검증으로 확인된 영역:
+Headless 및 자동 local web E2E로 확인된 영역:
 
+- clean install과 dependency audit
 - TypeScript 타입 계약
 - domain parser/recommendation/repository 단위 테스트
 - native formatter 단위 테스트
 - shot detail next-shot route helper 단위 테스트
 - native SQLite repository DDL/insert/update/transaction behavior mock 단위 테스트
 - 빠른 진단 저장 경로가 repository의 `createShotWithNextNumber` boundary를 사용하는지 여부
+- `getFontLoadState` pure state의 loading/error/ready 3개 상태
 - Expo SDK dependency 호환성
 - dependency audit vulnerability 0건
 - app config 기본 유효성
 - `eas.json` JSON syntax
 - web target production bundle 생성 가능 여부
-- 로고 asset이 web export asset으로 포함되는지 여부
-- 로컬 web runtime에서 빠른 진단, 추천 생성, 최근 기록, 세션 목록, 세션 편집, 세션 선택, 세션 상세 이동이 동작하는지 여부
-- 로컬 web runtime에서 mobile viewport, invalid detail route not-found state, SPA fallback deep route가 동작하는지 여부
-- 로컬 web runtime에서 keyboard/focus input, HTTP/SPA fallback response contract, viewport/layout DOM metric이 통과하는지 여부
-- 로컬 web runtime에서 맛 해석 preview, 추천 상세의 같은 세션 다음 샷 연결, 직전 샷 피드백 `개선됨/나빠짐` 옵션 표시 여부
+- 입력값 warning이 첫 제출에서 저장을 막고 명시적 확인을 요구하는지 여부
+- 확인 버튼 double-click이 결과 history entry를 하나만 만드는지 여부
+- dose, yield, brew time 변경 후 warning 확인을 다시 요구하는지 여부
+- E2E runner가 Chromium 사전 설치와 성공/실패별 artifact cleanup contract를 지키는지 여부
+- app이 font loading state를 표시하고, font error state에서 retry UI를 제공하는지 여부
 
-## Local Web Runtime Smoke Test
+폰트 error UI는 pure state test와 app fallback 구현으로만 확인했다. 브라우저에서 font error를 직접 주입해 UI를 검증하는 E2E는 현재 범위에 포함하지 않았다.
 
-2026-07-04에 아래 흐름을 Playwright로 확인했다.
+## Automated Local Web E2E
+
+2026-07-12에 `npm run test:e2e`를 실행해 Expo web export 기반 Playwright 5 scenarios를 통과했다.
+
+1. 비정상 입력의 첫 제출은 form에 남고 명시적 확인을 요구한다.
+2. `이 값으로 계속 저장` 버튼의 double-click은 결과 route history entry 하나만 만든다.
+3. warning 뒤 dose를 변경하면 다시 확인을 요구한다.
+4. warning 뒤 yield를 변경하면 다시 확인을 요구한다.
+5. warning 뒤 brew time을 변경하면 다시 확인을 요구한다.
+
+이 자동 E2E는 input safety와 result navigation 중복 방지를 확인한다. 세션 편집, detail route, mobile viewport, SPA fallback 등의 넓은 사용자 흐름은 아래의 2026-07-04 수동 smoke record 범위로 보존한다.
+
+## Historical Local Web Runtime Smoke Test
+
+2026-07-04에 아래 흐름을 Playwright로 수동 확인했다. 이 기록은 삭제하지 않으며, 2026-07-12 자동 E2E와 별도 범위다.
 
 상세 실행 기록은 [E2E Test Record 2026-07-04](e2e-test-record-2026-07-04.md)에 남겼다.
 
@@ -95,6 +115,7 @@ Headless 검증으로 확인된 영역:
 - Expo Go에서 native runtime 동작
 - simulator/emulator의 safe area, status bar, keyboard behavior
 - 실제 기기에서 한글 폰트 렌더링
+- font error를 직접 주입한 browser E2E와 retry 동작
 - OS 다크모드 연동
 - SQLite persistence의 실제 기기 재시작 후 유지
 - 앱 아이콘 표시 상태
@@ -102,6 +123,9 @@ Headless 검증으로 확인된 영역:
 - iOS/Android별 터치 타깃과 스크롤 감각
 - EAS preview build 산출물 설치 및 실행
 - production build/signing/store submission
+- 제품 피드백 loop의 실제 사용자 데이터 수집 및 평가
+- session archive UX
+- 코드와 CI/tooling에서 Node runtime version을 고정하는 정책
 
 ## Runtime Verification Availability
 

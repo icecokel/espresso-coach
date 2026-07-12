@@ -1,6 +1,6 @@
 # Project Improvement Priority
 
-Last reviewed: 2026-07-11
+Last reviewed: 2026-07-12
 
 ## Purpose
 
@@ -14,12 +14,13 @@ Last reviewed: 2026-07-11
 
 | Check | Result | Note |
 | --- | --- | --- |
+| `npm ci` | Pass | Node.js `v26.5.0` / npm `11.17.0`; `EBADENGINE` warning 없음. npm의 `allow-scripts` pending 안내는 출력됐지만 설치와 audit은 성공. |
 | `npm run lint` | Pass | TypeScript compile 통과 |
-| `npm test` | Pass | 8 test files / 36 tests |
-| `npx expo export --platform web` | Pass | web bundle 생성 가능 |
-| Local web runtime smoke test | Pass | Playwright로 validation, 빠른 진단, 다중 샷, 세션 편집/선택, 모바일 viewport, not-found route 확인 |
-| `npm exec expo-doctor` | Pass, 18/18 checks | `expo` 56.0.15, `expo-router` 56.2.14 기준 SDK 56 patch dependency 정합성 확인 |
-| `npm audit` | Pass | `uuid`, `esbuild` advisory는 npm overrides와 lockfile update로 해소 |
+| `npm test` | Pass | 9 test files / 43 tests와 E2E runner contract |
+| `npm run test:e2e` | Pass | Chromium preinstall, Expo web export, Playwright 5 input-safety scenarios; 성공 시 `dist/`, `output/playwright/` 정리, 실패 artifact 보존 |
+| Historical local web runtime smoke test | Pass | 2026-07-04 수동 Playwright 기록: validation, 빠른 진단, 다중 샷, 세션 편집/선택, 모바일 viewport, not-found route |
+| `npm exec expo-doctor` | Pass, 21/21 checks | Expo SDK dependency 정합성 확인 |
+| `npm audit` | Pass | 0 vulnerabilities |
 
 현재 앱의 강점:
 
@@ -29,28 +30,38 @@ Last reviewed: 2026-07-11
 - 빠른 진단에서 맛 해석 preview를 보여줘 사용자가 parser 결과를 확인할 수 있다.
 - 추천 상세의 `다음 샷 기록`은 같은 세션을 `sessionId`로 이어간다.
 - Expo/React Native 화면, SQLite 저장소, web export target이 기본 형태로 존재한다.
+- 폰트 loading/error/ready 상태는 pure state test 3개와 app fallback UI로 분리되어 있고, error state는 retry UI를 제공한다.
 
 현재 남은 검증 gap:
 
 - web target은 smoke test와 bundle 검증용으로 둔다. 현재 `createMemoryRepository`를 사용하므로 새로고침 후 persistence는 제품 요구사항으로 보지 않는다.
-- 현재 로컬 Node.js `v24.1.0`은 React Native 0.85 계열이 요구하는 `^24.3.0`보다 낮아 install 시 `EBADENGINE` warning이 난다.
 - Expo Go, simulator, EAS preview build에서의 실기기 동작은 아직 실행하지 않았다. 현재 세션에서는 EAS login이 없고 연결된 Android 기기가 없으며, iOS simulator tooling도 현재 CommandLineTools 상태에서 `simctl`을 사용할 수 없다.
 - persistent web product가 필요해지면 별도 IndexedDB adapter 또는 backend 저장소를 설계한다.
 - 빠른 진단 저장 경로는 `createShotWithNextNumber`를 사용해 shot number 할당과 저장을 repository boundary로 묶는다. native runtime의 실제 transaction 동작은 아직 Expo Go 또는 설치 앱에서 확인하지 못했다.
+- font error state를 browser E2E에서 직접 주입하는 검증은 아직 없다.
+- 제품 피드백 loop와 session archive UX는 아직 제품 흐름으로 구현하거나 검증하지 않았다.
+- `package.json` engine 범위는 선언됐지만, 코드와 CI/tooling에서 Node runtime version을 고정하는 정책은 아직 없다.
 
 ## Current Phase Boundary
 
-이번 페이즈에서 완료로 보는 범위:
+이번 Stage 1에서 완료로 보는 범위:
 
-- Expo/React Native MVP 앱 기본 구현, 세션 생성/선택/편집, 배전 범위 입력 연결
+- Expo SDK 정합성, clean install, lint, unit test, expo-doctor, dependency audit
+- 검증 문서와 README의 current stage 정합성
+- web export E2E runner의 Chromium preinstall, 성공 cleanup, 실패 artifact 보존 contract
+- input safety의 warning confirmation과 duplicate navigation 방지 Playwright E2E
+- font loading/error/ready pure state test와 loading/error/retry fallback UI
+- Expo/React Native MVP 기본 구현, 세션 생성/선택/편집, 배전 범위 입력 연결
 - 빠른 진단 맛 해석 preview, 같은 세션 다음 샷 기록, action/variable label formatter 공통화
-- SQLite FK/unique/index/transaction boundary, native repository mock 단위 검증, local web E2E 기록
+- SQLite FK/unique/index/transaction boundary와 native repository mock 단위 검증
 
 다음 페이즈로 이관하는 범위:
 
 - Expo Go, simulator/emulator, EAS preview build 실기기 검증
-- 고급 모드 UI, 추천 피드백 루프, 실험 결과 모델
-- persistent web product 저장소, export/sync, session archive UX
+- 고급 모드 UI, 제품 피드백 loop, 실험 결과 모델
+- session archive UX
+- persistent web product 저장소, export/sync
+- 코드와 CI/tooling에서 Node runtime version을 고정하는 정책
 
 ## Priority Model
 
@@ -70,21 +81,22 @@ Last reviewed: 2026-07-11
 
 | Priority | Work | Why | Output |
 | --- | --- | --- | --- |
-| P0 | Expo package patch version 정합성 유지 | SDK patch mismatch는 `expo-doctor` 실패와 런타임 drift로 이어진다. | `expo`, `expo-constants`, `expo-linking`, `expo-router`를 SDK 56 기대 patch version으로 유지 |
-| P0 | 검증 문서 갱신 | headless, local web smoke, device/build 검증 범위를 분리해야 한다. | 최신 검증 결과, 실패 원인, 재검증 일자 기록 |
-| P1 | README의 current stage 문구 갱신 | README가 현재 통과 범위와 미검증 범위를 정확히 말해야 한다. | README가 headless/local web 통과와 device/EAS 미검증 상태를 구분 |
-| P1 | `npm audit` 결과 triage | 강제 fix가 Expo major downgrade를 유도하므로 무작정 적용하면 안 된다. | advisory 영향 범위, Expo update로 해결 가능한지, 잔여 리스크 기록 |
-| P1 | web export 산출물 정리 정책 확인 | `dist/`는 임시 산출물이며 git에 남기지 않는다. | 검증 후 삭제 기준 유지 |
+| P0 | Expo package patch version 정합성 유지 | SDK patch mismatch는 `expo-doctor` 실패와 런타임 drift로 이어진다. | Done: `npm exec expo-doctor` 21/21 checks |
+| P0 | 검증 문서 갱신 | headless, 자동 web E2E, historical manual smoke, device/build 검증 범위를 분리해야 한다. | Done: 최신 검증 결과와 미검증 범위 기록 |
+| P1 | README의 current stage 문구 갱신 | README가 현재 통과 범위와 미검증 범위를 정확히 말해야 한다. | Done: Stage 1 완료와 다음 RN MVP phase 구분 |
+| P1 | `npm audit` 결과 triage | dependency vulnerability 결과를 현재 lockfile 기준으로 확인한다. | Done: `npm audit` 0 vulnerabilities |
+| P1 | web export 산출물 정리 정책 확인 | `dist/`는 임시 산출물이며 git에 남기지 않는다. | Done: 성공 시 `dist/`, `output/playwright/` 정리; 실패 artifact 보존 |
+| P1 | 입력 안전성 E2E | 범위 밖 입력은 저장 전 명시적 확인이 필요하고 중복 navigation을 만들면 안 된다. | Done: Playwright 5 scenarios |
+| P1 | font fallback | 폰트 loading/error가 앱 shell을 막지 않고 recovery path를 제공해야 한다. | Done: pure state 3 tests와 loading/error/retry UI; browser error injection E2E는 미포함 |
 
 ### Completion Criteria
 
 - `npm run lint` 통과
 - `npm test` 통과
-- `npm exec expo-doctor` 18/18 통과
-- `npx expo export --platform web` 통과
-- local web runtime smoke test 통과
+- `npm run test:e2e` 통과: Chromium preinstall, Expo web export, Playwright 5 scenarios
+- `npm exec expo-doctor` 21/21 통과
 - `docs/planning/verification-status.md`가 실제 검증 결과와 일치
-- `npm audit` 결과를 처리하거나 잔여 리스크로 명시
+- `npm audit` 0 vulnerabilities
 
 ### Notes
 
@@ -106,6 +118,8 @@ Last reviewed: 2026-07-11
 | P1 | 빠른 진단 화면의 optional field 정리 | Done | 분쇄도, 퍽/흐름, 직전 변경값의 label, default, 저장 mapping 정리 |
 | P1 | detail 화면 loading/empty/error 상태 분리 | Done | 샷 상세, 세션 상세의 loading, not found, load error UI |
 | P1 | keyboard/safe area/CTA 동작 점검 | Next phase | Expo Go smoke test에서 입력 필드와 하단 CTA 확인 |
+| P1 | 제품 피드백 loop | Next phase | 실제 사용자 feedback 수집, 추천 품질 평가, 후속 action 연결 |
+| P2 | session archive UX | Next phase | 장기 보관 세션의 탐색, 복원, 삭제 정책 |
 | P2 | action/variable label formatter 공통화 | Done | `src/native/formatters.ts` shared formatter |
 | P2 | web persistence 방향 유지 | Next phase | web product 전환 시 IndexedDB adapter 또는 backend 저장소를 별도 설계 |
 
@@ -136,9 +150,10 @@ MVP를 반복 개발하고 preview build로 검증할 수 있도록 저장소, �
 | P0 | SQLite schema 무결성 보강 | Done | `session_id` FK, `(session_id, shot_number)` unique/index, 호환 trigger |
 | P0 | shot 생성 transaction 적용 | Done | `createShotWithNextNumber` repository API와 native exclusive transaction 경계 |
 | P1 | native repository 검증 보강 | Done | native adapter mock 단위 테스트 |
-| P1 | EAS preview build 설정 | Next phase | `eas.json`, preview profile, Android/iOS preview checklist |
+| P1 | EAS preview build 실행/설치 검증 | Next phase | preview profile로 Android/iOS artifact를 만들고 설치 확인 |
 | P1 | 실기기 검증 결과 문서화 | Next phase | Expo Go / simulator / EAS preview 검증 기록 |
-| P2 | docs 정리: web-era 문서와 RN 문서 구분 | In progress | web-era decision과 current RN implementation을 구분하는 문서 상태 |
+| P1 | Node runtime version policy | Next phase | 코드와 CI/tooling에서 지원 Node runtime을 고정하고 검증 |
+| P2 | docs 정리: web-era 문서와 RN 문서 구분 | Done | current RN MVP 기준과 web smoke/E2E 범위를 문서에서 분리 |
 | P2 | 추천 품질 regression case 확대 | Next phase | taste parser와 recommendation 테스트 케이스 추가 |
 
 ### Completion Criteria
@@ -162,7 +177,8 @@ MVP를 반복 개발하고 preview build로 검증할 수 있도록 저장소, �
 4. EAS preview build 설정
 5. Android/iOS preview artifact 설치 테스트
 6. 실기기/EAS 검증 결과 문서화
-7. 고급 모드, 추천 피드백 루프, 실험 결과 모델 설계
+7. Node runtime version policy를 코드와 CI/tooling에 적용
+8. 고급 모드, 제품 피드백 loop, session archive UX, 실험 결과 모델 설계
 
 ## Related Documents
 
