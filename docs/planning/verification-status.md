@@ -1,12 +1,12 @@
 # Verification Status
 
-Last updated: 2026-07-13
+Last updated: 2026-07-19
 
 ## Scope
 
 이 문서는 현재 Espresso Coach MVP의 검증 상태를 정리한다.
 
-검증은 세 범위로 나눈다.
+검증은 네 범위로 나눈다.
 
 - Headless verification: 로컬에서 UI 조작 없이 자동 실행 가능한 설치, 정적 검사, 단위 테스트, Expo 설정 검사, dependency audit
 - Automated local web E2E: Expo web bundle을 생성하고 로컬 정적 서버에서 Playwright로 자동 확인
@@ -15,19 +15,20 @@ Last updated: 2026-07-13
 
 ## Current Result
 
-2026-07-13 기준 headless 검증과 자동 local web E2E가 통과했다. 검증 환경은 Node.js `v26.5.0` / npm `11.17.0`이다. `npm ci`는 2026-07-12에 `EBADENGINE` 경고 없이 성공했다. npm 11.17.0은 `allow-scripts` pending 안내를 출력했지만 설치와 audit은 성공했으며, 이는 install script 승인 상태를 안내하는 메시지로만 기록한다.
+2026-07-19 기준 headless 검증과 자동 local web E2E가 통과했다. 검증 환경은 Node.js `v26.5.0` / npm `11.17.0`이다. `npm ci`는 2026-07-12에 `EBADENGINE` 경고 없이 성공했다. npm 11.17.0은 dependency install에서 `allow-scripts` pending 안내를 출력했지만 설치와 audit은 성공했으며, 이는 install script 승인 상태를 안내하는 메시지로만 기록한다.
 
 2026-07-04의 수동 local web runtime smoke test 기록은 보존한다. 이 기록은 최신 자동 E2E의 대체가 아니며, 서로 다른 범위를 확인한다.
 
 | Check | Command | Result | Last confirmed |
 | --- | --- | --- | --- |
 | Clean dependency install | `npm ci` | Pass; no `EBADENGINE` warning. npm 11.17.0 `allow-scripts` pending notice emitted. | 2026-07-12 |
-| TypeScript compile | `npm run lint` | Pass | 2026-07-13 |
-| Unit tests and E2E runner contract | `npm test` | Pass; 10 unit test files / 57 unit tests, then E2E runner cleanup contract | 2026-07-13 |
-| Automated local web E2E | `npm run test:e2e` | Pass; Chromium preinstall, Expo web export, Playwright 16 scenarios | 2026-07-13 |
-| Expo project health | `npm exec expo-doctor` | Pass, 21/21 checks | 2026-07-12 |
-| Dependency audit | `npm audit` | Pass, 0 vulnerabilities | 2026-07-12 |
-| Working tree whitespace check | `git diff --check` | Pass | 2026-07-12 |
+| TypeScript compile | `npm run lint` | Pass | 2026-07-19 |
+| Unit tests and E2E runner contract | `npm test` | Pass; 10 unit test files / 60 unit tests, then E2E runner cleanup contract | 2026-07-19 |
+| Automated local web E2E | `npm run test:e2e` | Pass; Chromium preinstall, Expo web export, Playwright 22 scenarios | 2026-07-19 |
+| Expo project health | `npm exec expo-doctor` | Pass, 21/21 checks | 2026-07-19 |
+| Expo SDK dependency alignment | `npx expo install --check` | Pass; dependencies up to date | 2026-07-19 |
+| Dependency audit | `npm audit` | Pass, 0 vulnerabilities | 2026-07-19 |
+| Working tree whitespace check | `git diff --check` | Pass | 2026-07-19 |
 | Historical local web runtime smoke test | `npx --yes serve@latest -s dist -l 4173` + Playwright | Pass; manual record retained below | 2026-07-04 |
 
 `npm run test:e2e`는 lifecycle에서 Chromium을 설치한 뒤 Expo web export와 Playwright를 실행한다. runner는 성공 시 `dist/`와 `output/playwright/`를 정리하고, 실패 시 `dist/`만 정리해 Playwright failure artifact를 보존한다.
@@ -59,6 +60,12 @@ Headless 및 자동 local web E2E로 확인된 영역:
 - 빈 필수값 validation, 세션 생성/선택, direct not-found route와 정상 제출의 browser error 부재
 - `320x640`, `390x844`, `768x1024`, `1440x900` viewport의 수평 overflow와 CTA 노출 여부
 - native SQLite의 archived session shot write 차단과 direct/next-shot transaction 경계 mock 검증
+- memory/native repository가 활성 세션의 최신 샷만 삭제하고 이전 샷과 archived session 삭제를 거부하는지 여부
+- 빠른 진단이 필수 입력을 먼저 보여주고 원두 정보와 선택 관찰을 기본 접힘 상태로 유지하는지 여부
+- 세션 목록이 편집기보다 먼저 표시되고 상세에서 선택 세션 편집으로 이어지는지 여부
+- 긴 세션 제목과 상태 metadata가 겹치지 않고 다음 샷·수정 action이 노출되는지 여부
+- radio/checkbox의 ARIA checked 상태와 접힘 UI의 expanded 상태
+- 다크 모드 주요 CTA가 `primaryDark` token을 사용하는지 여부
 - E2E runner가 Chromium 사전 설치와 성공/실패별 artifact cleanup contract를 지키는지 여부
 - app이 font loading state를 표시하고, font error state에서 retry UI를 제공하는지 여부
 
@@ -66,7 +73,7 @@ Headless 및 자동 local web E2E로 확인된 영역:
 
 ## Automated Local Web E2E
 
-2026-07-13에 `npm run test:e2e`를 실행해 Expo web export 기반 Playwright 16 scenarios를 통과했다.
+2026-07-19에 `npm run test:e2e`를 실행해 Expo web export 기반 Playwright 22 scenarios를 통과했다.
 
 1. 비정상 입력의 첫 제출은 form에 남고 명시적 확인을 요구한다.
 2. `이 값으로 계속 저장` 버튼의 double-click은 결과 route history entry 하나만 만든다.
@@ -80,8 +87,29 @@ Headless 및 자동 local web E2E로 확인된 영역:
 10. 존재하지 않는 샷과 세션 direct route는 각각 not-found 상태를 표시한다.
 11. `320x640`, `390x844`, `768x1024`, `1440x900` viewport에서 수평 overflow 없이 CTA를 표시한다.
 12. 정상 제출은 browser console/page error 없이 샷 결과 route로 이동한다.
+13. 원두 정보와 이전 샷 관찰 입력은 기본 접힘 상태이고, 선택 radio는 실제 checked 상태를 노출한다.
+14. 세션 목록은 편집기보다 기록을 먼저 보여주며 `새 세션` 명령으로 편집기를 연다.
+15. 모바일 세션 상세에서 긴 제목과 상태 metadata가 겹치지 않고 다음 샷·수정 action을 표시한다.
+16. 세션 상세의 `세션 수정`이 선택된 세션의 편집기로 이동한다.
+17. 최신 샷 삭제는 명시적 확인 뒤에만 실행되고 빈 세션 상세로 돌아간다.
+18. 다크 모드 주요 CTA는 고대비 `primaryDark` 배경 token을 사용한다.
 
-이 자동 E2E는 input warning 5개, previous-shot feedback 1개, archive/restore와 stale route 보호 1개, navigation/responsiveness 9개를 확인한다. 세션 편집과 실제 기기 keyboard/safe area 검증은 아래의 2026-07-04 수동 smoke record 및 다음 device 검증 범위로 보존한다.
+이 자동 E2E는 input warning 5개, previous-shot feedback 1개, archive/restore와 stale route 보호 1개, navigation/responsiveness 10개, core UX improvement 5개를 확인한다. 실제 기기 keyboard/safe area 검증은 다음 device 검증 범위로 보존한다.
+
+## Current Playwright CLI Visual Review
+
+2026-07-19에 실제 Chromium을 Playwright CLI로 조작해 자동 assertion과 별도로 다음 상태를 시각 확인했다.
+
+1. `320x640` 빠른 진단에서 숫자 입력이 두 열로 재배치되어 `18.0`, `36.0`, 단위가 잘리지 않는다.
+2. `390x844` 빠른 진단에서 필수 입력이 원두 정보와 선택 관찰보다 먼저 보이고 하단 CTA가 유지된다.
+3. `390x844` 샷 상세에서 추천, 측정값, 최신 샷 삭제 2단계 확인 UI가 겹치지 않는다.
+4. `390x844` 세션 상세에서 제목, 상태, 샷 수, 다음 샷·수정·보관 action이 겹치지 않는다.
+5. `390x844` 세션 목록은 편집기를 기본으로 숨기고 `새 세션`으로 한 열 편집기를 연다.
+6. `1440x900` 빠른 진단과 세션 상세는 공통 1120px 본문 폭 안에서 정보 밀도를 유지한다.
+7. `390x844` 다크 모드에서 본문, 입력, 경계선, CTA가 구분되며 주요 CTA 배경은 `rgb(63, 120, 105)`다.
+8. 접근성 snapshot에서 기본 배전도 radio가 `[checked]`로 노출된다.
+
+web target은 `createMemoryRepository`를 사용하므로 hard reload 뒤 데이터 초기화는 현재 검증 target의 의도된 제약이다. native SQLite 재실행 영속성으로 해석하지 않는다.
 
 ## Historical Local Web Runtime Smoke Test
 
@@ -129,7 +157,7 @@ Headless 및 자동 local web E2E로 확인된 영역:
 - simulator/emulator의 safe area, status bar, keyboard behavior
 - 실제 기기에서 한글 폰트 렌더링
 - font error를 직접 주입한 browser E2E와 retry 동작
-- OS 다크모드 연동
+- iOS/Android OS 다크모드 연동
 - SQLite persistence의 실제 기기 재시작 후 유지
 - 앱 아이콘 표시 상태
 - Android back behavior
@@ -137,7 +165,7 @@ Headless 및 자동 local web E2E로 확인된 영역:
 - EAS preview build 산출물 설치 및 실행
 - production build/signing/store submission
 - 제품 피드백 loop의 실제 사용자 데이터 수집 및 평가
-- 세션 삭제 정책과 실제 사용자 피드백 기반 추천 품질 평가
+- 세션 전체 삭제 정책과 실제 사용자 피드백 기반 추천 품질 평가
 - 코드와 CI/tooling에서 Node runtime version을 고정하는 정책
 
 ## Runtime Verification Availability

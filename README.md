@@ -20,6 +20,7 @@ MVP는 **원두별 에스프레소 다이얼링 코치**입니다.
 - 배전 범위별 추출 변수와 맛 기대값 해석
 - 자연어 처리: MVP는 규칙 기반 태깅 우선, 실제 LLM API 보정은 MVP 이후 검토
 - 우선순위형 추천: 여러 후보를 보여주되 실제 조정은 한 번에 하나만 권장
+- 활성 세션의 최신 샷 1건 정정 삭제와 명시적 확인
 - 기본 모드와 고급 모드 분리
 
 ## Development
@@ -50,9 +51,9 @@ npm run setup:hooks
 
 이후 `git push`는 `npm run test:e2e`를 완료해야 진행된다. 긴급하게 우회해야 할 때만 `SKIP_PREPUSH_E2E=1 git push`를 사용한다.
 
-2026-07-12 재검증은 Node.js `v26.5.0` / npm `11.17.0`에서 수행했다. `npm ci`는 `EBADENGINE` 경고 없이 성공했고, npm의 `allow-scripts` pending 안내는 출력됐지만 설치와 audit은 성공했다. `npm exec expo-doctor`(21/21 checks), `npm audit`(0 vulnerabilities), `git diff --check`가 모두 통과했다. 2026-07-13에는 `npm run lint`, `npm test`(10 unit test files / 57 unit tests와 E2E runner contract), `npm run test:e2e`(Expo web export 기반 Playwright 16 scenarios)를 다시 통과했다. `npm run test:e2e`는 Chromium을 먼저 설치하고, 성공하면 `dist/`와 `output/playwright/`를 정리하며 실패 artifact는 보존한다.
+2026-07-19 재검증은 Node.js `v26.5.0` / npm `11.17.0`에서 수행했다. `npm run lint`, `npm test`(10 unit test files / 60 unit tests와 E2E runner contract), `npm run test:e2e`(Expo web export 기반 Playwright 22 scenarios), `npm exec expo-doctor`(21/21 checks), `npx expo install --check`, `npm audit`(0 vulnerabilities), `git diff --check`가 모두 통과했다. Expo 패치는 `expo ~56.0.16`, `expo-constants ~56.0.21`, `expo-router ~56.2.15`로 맞췄다. `npm run test:e2e`는 Chromium을 먼저 설치하고, 성공하면 `dist/`와 `output/playwright/`를 정리하며 실패 artifact는 보존한다.
 
-web target은 현재 production web app이 아니라 로컬 자동 E2E와 번들 검증용 target이다. 실기기 고유 동작과 설치 앱 동작은 Expo Go 또는 EAS preview build로 추가 확인해야 한다.
+web target은 현재 production web app이 아니라 로컬 자동 E2E와 번들 검증용 target이며 메모리 저장소를 사용한다. 새로고침 후 영속성, 실기기 고유 동작과 설치 앱 동작은 각각 native SQLite, Expo Go 또는 EAS preview build에서 추가 확인해야 한다.
 
 ## Planning Documents
 
@@ -89,6 +90,6 @@ web target은 현재 production web app이 아니라 로컬 자동 E2E와 번들
 
 ## Current Stage
 
-현재는 Expo/React Native MVP의 Stage 1 안정화와 Stage 2 핵심 흐름을 완료한 상태다. 이전 샷의 유효한 도징량/추출량 자동 비교, 수동 변경의 same-variable override, 방향과 결과 분리, 결과 기반 다음 추천 보정이 포함된다. 세션은 보관·복원이 가능하며 보관된 세션은 기록 조회는 유지하되 새 샷 선택과 저장은 차단하고, native storage는 이를 transaction으로 강제한다.
+현재는 Expo/React Native MVP의 Stage 1 안정화와 Stage 2 핵심 흐름을 완료한 상태다. 빠른 진단은 필수 입력을 먼저 보여주고 세션 정보와 관찰값을 접어두며, 세션 목록은 기록 확인을 우선하고 편집기는 필요할 때 연다. 이전 샷 자동 비교와 결과 기반 추천 보정, 세션 보관·복원, 상세 화면 재시도, 반응형 본문 폭, 접근성 선택 상태와 다크 모드 대비를 자동 검증한다. 활성 세션에서는 오입력 정정을 위해 최신 샷만 확인 후 삭제할 수 있고, native storage가 최신 샷 조건과 archive guard를 transaction 경계에서 강제한다.
 
-다음 페이즈에서는 Expo Go, simulator/emulator, EAS preview build의 실기기 검증을 먼저 수행한다. 제품 피드백과 추천 품질 평가, 세션 삭제 정책, 코드와 CI/tooling에서의 Node runtime version 고정 정책은 아직 완료하지 않았다.
+다음 페이즈에서는 Expo Go, simulator/emulator, EAS preview build의 실기기 검증을 먼저 수행한다. 제품 피드백과 추천 품질 평가, 세션 전체 삭제 정책, 코드와 CI/tooling에서의 Node runtime version 고정 정책은 아직 완료하지 않았다.

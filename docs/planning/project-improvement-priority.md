@@ -1,6 +1,6 @@
 # Project Improvement Priority
 
-Last reviewed: 2026-07-12
+Last reviewed: 2026-07-19
 
 ## Purpose
 
@@ -16,8 +16,8 @@ Last reviewed: 2026-07-12
 | --- | --- | --- |
 | `npm ci` | Pass | Node.js `v26.5.0` / npm `11.17.0`; `EBADENGINE` warning 없음. npm의 `allow-scripts` pending 안내는 출력됐지만 설치와 audit은 성공. |
 | `npm run lint` | Pass | TypeScript compile 통과 |
-| `npm test` | Pass | 10 unit test files / 57 unit tests와 E2E runner contract |
-| `npm run test:e2e` | Pass | 2026-07-13 기준 Chromium preinstall, Expo web export, Playwright 16 scenarios; 성공 시 `dist/`, `output/playwright/` 정리, 실패 artifact 보존 |
+| `npm test` | Pass | 10 unit test files / 60 unit tests와 E2E runner contract |
+| `npm run test:e2e` | Pass | 2026-07-19 기준 Chromium preinstall, Expo web export, Playwright 22 scenarios; 성공 시 `dist/`, `output/playwright/` 정리, 실패 artifact 보존 |
 | Historical local web runtime smoke test | Pass | 2026-07-04 수동 Playwright 기록: validation, 빠른 진단, 다중 샷, 세션 편집/선택, 모바일 viewport, not-found route |
 | `npm exec expo-doctor` | Pass, 21/21 checks | Expo SDK dependency 정합성 확인 |
 | `npm audit` | Pass | 0 vulnerabilities |
@@ -32,6 +32,11 @@ Last reviewed: 2026-07-12
 - 추천 상세의 `다음 샷 기록`은 같은 세션을 `sessionId`로 이어간다.
 - 이전 샷의 유효한 dose/yield 변화는 자동 기록하고, 수동 변경은 같은 변수를 덮어쓴다. 방향과 결과는 별도 입력으로 추천에 반영된다.
 - 세션 보관/복원, archived session의 진단 제외, native transactional shot-write 차단이 구현·자동 검증됐다.
+- 빠른 진단은 필수 입력을 먼저 배치하고 세션 정보와 선택 관찰을 기본 접힘 상태로 제공한다.
+- 세션 목록은 기록을 먼저 보여주며, 상세 화면에서 다음 샷·수정·보관 동작으로 바로 이어진다.
+- 활성 세션의 최신 샷만 명시적 확인 후 삭제할 수 있고, repository가 이전 샷 삭제와 archived session 삭제를 거부한다.
+- `320x640`에서는 숫자 입력을 두 열로 재배치하고, 넓은 화면 본문은 공통 1120px로 제한한다.
+- radio/checkbox의 실제 ARIA 선택 상태와 다크 모드 주요 CTA 대비를 Playwright로 검증한다.
 - Expo/React Native 화면, SQLite 저장소, web export target이 기본 형태로 존재한다.
 - 폰트 loading/error/ready 상태는 pure state test 3개와 app fallback UI로 분리되어 있고, error state는 retry UI를 제공한다.
 
@@ -42,7 +47,7 @@ Last reviewed: 2026-07-12
 - persistent web product가 필요해지면 별도 IndexedDB adapter 또는 backend 저장소를 설계한다.
 - 빠른 진단 저장 경로는 `createShotWithNextNumber`를 사용해 shot number 할당과 저장을 repository boundary로 묶는다. native runtime의 실제 transaction 동작은 아직 Expo Go 또는 설치 앱에서 확인하지 못했다.
 - font error state를 browser E2E에서 직접 주입하는 검증은 아직 없다.
-- 제품 피드백 loop와 실제 사용자 데이터 기반 추천 품질 평가는 아직 없다. 세션 삭제 정책도 아직 결정하지 않았다.
+- 제품 피드백 loop와 실제 사용자 데이터 기반 추천 품질 평가는 아직 없다. 세션 전체 삭제 정책도 아직 결정하지 않았다.
 - `package.json` engine 범위는 선언됐지만, 코드와 CI/tooling에서 Node runtime version을 고정하는 정책은 아직 없다.
 
 ## Current Phase Boundary
@@ -59,12 +64,15 @@ Last reviewed: 2026-07-12
 - SQLite FK/unique/index/transaction boundary와 native repository mock 단위 검증
 - 이전 샷 자동 비교, 수동 same-variable override, 방향/결과 분리와 결과 기반 추천 보정
 - 세션 보관/복원, archived session 진단 제외, stale route 저장 차단, archive/restore web E2E
+- 필수 입력 우선 빠른 진단, 기본 접힘 선택 입력, 기록 우선 세션 목록과 상세 primary action
+- 최신 샷 1건 정정 삭제와 memory/native repository guard
+- 320px 숫자 입력 재배치, 1120px 본문 제한, ARIA checked/expanded, 다크 모드 CTA 대비
 
 다음 페이즈로 이관하는 범위:
 
 - Expo Go, simulator/emulator, EAS preview build 실기기 검증
 - 고급 모드 UI, 제품 피드백 loop, 추천 품질 평가, 실험 결과 모델
-- 세션 삭제 정책
+- 세션 전체 삭제 정책
 - persistent web product 저장소, export/sync
 - 코드와 CI/tooling에서 Node runtime version을 고정하는 정책
 
@@ -86,7 +94,7 @@ Last reviewed: 2026-07-12
 
 | Priority | Work | Why | Output |
 | --- | --- | --- | --- |
-| P0 | Expo package patch version 정합성 유지 | SDK patch mismatch는 `expo-doctor` 실패와 런타임 drift로 이어진다. | Done: `npm exec expo-doctor` 21/21 checks |
+| P0 | Expo package patch version 정합성 유지 | SDK patch mismatch는 `expo-doctor` 실패와 런타임 drift로 이어진다. | Done: `expo ~56.0.16`, `expo-constants ~56.0.21`, `expo-router ~56.2.15`; `npm exec expo-doctor` 21/21 checks |
 | P0 | 검증 문서 갱신 | headless, 자동 web E2E, historical manual smoke, device/build 검증 범위를 분리해야 한다. | Done: 최신 검증 결과와 미검증 범위 기록 |
 | P1 | README의 current stage 문구 갱신 | README가 현재 통과 범위와 미검증 범위를 정확히 말해야 한다. | Done: Stage 1 완료와 다음 RN MVP phase 구분 |
 | P1 | `npm audit` 결과 triage | dependency vulnerability 결과를 현재 lockfile 기준으로 확인한다. | Done: `npm audit` 0 vulnerabilities |
@@ -98,7 +106,7 @@ Last reviewed: 2026-07-12
 
 - `npm run lint` 통과
 - `npm test` 통과
-- `npm run test:e2e` 통과: Chromium preinstall, Expo web export, Playwright 16 scenarios
+- `npm run test:e2e` 통과: Chromium preinstall, Expo web export, Playwright 22 scenarios
 - `npm exec expo-doctor` 21/21 통과
 - `docs/planning/verification-status.md`가 실제 검증 결과와 일치
 - `npm audit` 0 vulnerabilities
@@ -120,12 +128,16 @@ Last reviewed: 2026-07-12
 | --- | --- | --- | --- |
 | P0 | 원두 세션 생성/선택 흐름 추가 | Done | 세션 생성, 선택, 현재 세션 표시, 이름/원두 정보 수정 |
 | P0 | 배전 범위 입력 UI 연결 | Done | `RoastProfile.range`, `confidence`, `source`를 세션에 저장하는 기본 UI |
+| P0 | beginner-first 빠른 진단 | Done | 필수 입력 우선, 원두 정보와 선택 관찰 기본 접힘, 첫 샷의 이전 변경 입력 숨김 |
 | P1 | 구조화된 이전 샷 feedback | Done | valid dose/yield 자동 비교, 수동 same-variable override, 방향/결과 분리, 결과 기반 추천 보정 |
 | P1 | detail 화면 loading/empty/error 상태 분리 | Done | 샷 상세, 세션 상세의 loading, not found, load error UI |
+| P1 | 기록 우선 세션 흐름 | Done | 목록을 편집기보다 먼저 표시하고 상세에서 다음 샷, 수정, 보관/복원 제공 |
+| P1 | 최신 샷 정정 삭제 | Done | 활성 세션 최신 샷만 2단계 확인 후 삭제; memory/native guard와 E2E |
+| P1 | 반응형·접근성·다크 모드 보강 | Done | 320px 입력 재배치, 1120px 본문 제한, ARIA 상태, 고대비 CTA |
 | P1 | keyboard/safe area/CTA 동작 점검 | Next phase | Expo Go smoke test에서 입력 필드와 하단 CTA 확인 |
 | P1 | 제품 피드백 loop와 추천 품질 평가 | Next phase | 실제 사용자 feedback 수집, 추천 품질 평가, 후속 action 연결 |
 | P1 | session archive/restore UX | Done | 보관/복원, archived session 조회 유지, 진단·shot write 차단, web E2E |
-| P2 | 세션 삭제 정책 | Next phase | 장기 보관 세션의 삭제 기준과 사용자 확인 흐름 결정 |
+| P2 | 세션 전체 삭제 정책 | Next phase | 장기 보관 세션 전체의 삭제 기준과 사용자 확인 흐름 결정 |
 | P2 | action/variable label formatter 공통화 | Done | `src/native/formatters.ts` shared formatter |
 | P2 | web persistence 방향 유지 | Next phase | web product 전환 시 IndexedDB adapter 또는 backend 저장소를 별도 설계 |
 
@@ -136,6 +148,8 @@ Last reviewed: 2026-07-12
 - 배전 범위가 추천 input의 `session.roastProfile`로 연결된다.
 - 샷 상세와 세션 상세에서 loading, empty, error가 구분된다.
 - 보관된 세션은 detail에서 조회·복원할 수 있고, 진단 선택과 shot write는 거부된다.
+- 활성 세션의 최신 샷만 확인 후 삭제할 수 있고 이전 샷과 보관 세션의 샷은 삭제되지 않는다.
+- 320px부터 1440px까지 필수 입력과 주요 동작이 잘림·수평 overflow 없이 표시된다.
 - Expo Go에서 필수 입력, 추천 생성, 저장, 재실행 후 기록 확인은 다음 페이즈 smoke test에서 확인한다.
 
 ### Notes
@@ -185,7 +199,7 @@ MVP를 반복 개발하고 preview build로 검증할 수 있도록 저장소, �
 5. Android/iOS preview artifact 설치 테스트
 6. 실기기/EAS 검증 결과 문서화
 7. Node runtime version policy를 코드와 CI/tooling에 적용
-8. 고급 모드, 제품 피드백 loop, 추천 품질 평가, 세션 삭제 정책, 실험 결과 모델 설계
+8. 고급 모드, 제품 피드백 loop, 추천 품질 평가, 세션 전체 삭제 정책, 실험 결과 모델 설계
 
 ## Related Documents
 

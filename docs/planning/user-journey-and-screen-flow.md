@@ -207,6 +207,7 @@ Primary actions:
 - Add next shot.
 - Open shot detail.
 - Edit session.
+- Archive or restore session.
 
 State transitions:
 - Add next shot -> `Quick Diagnosis Input` with this `sessionId`.
@@ -264,6 +265,12 @@ Primary actions:
 - Save/update session roast context if provided.
 - Expand optional basic observations.
 - Toggle advanced mode.
+
+Default presentation:
+- Show the four required fields before session context and optional observations.
+- Keep bean/session metadata collapsed until the user chooses to add or edit it.
+- Keep optional observations collapsed; first shots do not show previous-shot change controls.
+- Use a two-column numeric layout below 360px and constrain wide-screen content to the shared maximum width.
 
 State transitions:
 - Submit valid draft -> shot creation pipeline -> `Recommendation Result`.
@@ -357,11 +364,13 @@ Primary actions:
 - Return to session detail.
 - Add next shot in the same session.
 - Open recommendation result for this shot.
+- Delete this shot only when it is the latest shot of an active session.
 
 State transitions:
 - Back -> `Session Detail`.
 - Add next shot -> `Quick Diagnosis Input` with same `sessionId`.
 - View recommendation -> `Recommendation Result` for this saved shot.
+- Confirm latest-shot delete -> `Session Detail` with the remaining shot history.
 
 Shown information:
 - Required input values and derived extraction values.
@@ -379,6 +388,7 @@ Loading state:
 
 Error state:
 - If shot load fails, show retry and link back to `Session Detail`.
+- If the shot is no longer the latest or the session was archived, keep the record and explain that only the latest active-session shot can be deleted.
 
 ## Cross-Screen State Rules
 
@@ -391,6 +401,8 @@ Error state:
 - A successful save must create exactly one `ShotRecord` with one `RecommendationResult.primary`.
 - Returning from result to next shot keeps session context but clears shot-specific draft fields.
 - Navigation must never require advanced mode to complete the default flow.
+- Shot correction deletion is limited to the latest shot of an active session and must be enforced again inside the repository transaction.
+- Deleting an older shot is not allowed because it would make sequential history and saved recommendation snapshots ambiguous.
 
 ## Empty and Edge States
 
@@ -451,4 +463,5 @@ Behavior:
 - 고급 입력은 `Quick Diagnosis Input` 안의 opt-in toggle이며 기본 흐름을 막지 않는다.
 - 각 샷은 저장 시점의 parser output, recommendation output, input warnings를 함께 저장한다.
 - 한 화면에서 실행하라고 말하는 primary action은 항상 1개다.
+- 오입력 정정은 활성 세션의 최신 샷 1건만 명시적 확인 후 삭제한다.
 - 장기 통계 대시보드, 커뮤니티, 레시피 공유, 쇼핑, 센서 연동은 MVP 화면 흐름에 포함하지 않는다.
