@@ -17,10 +17,3 @@ export function createEmptyBasicObservation(): BasicObservation {
     prepIssueTypes: [],
   };
 }
-
-export const emptyShotDefaults = {
-  advancedObservation: null,
-  changesFromPrevious: [],
-  tasteTags: [],
-  tastePatterns: [],
-} as const;

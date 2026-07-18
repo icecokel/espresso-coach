@@ -1,6 +1,4 @@
 import type {
-  BrewRatioBand,
-  BrewTimeBand,
   RecommendationKeepVariable,
   RoastRange,
 } from "../types";
@@ -33,14 +31,14 @@ export type BaseRuleId =
   | "R-BALANCED"
   | "R-UNKNOWN";
 
-export type RoastContextRuleId =
+type RoastContextRuleId =
   | "ROAST-LIGHT-SOUR"
   | "ROAST-LIGHT-BITTER"
   | "ROAST-DARK-BITTER"
   | "ROAST-DARK-SOUR"
   | "ROAST-UNKNOWN";
 
-export type PreviousShotRuleId =
+type PreviousShotRuleId =
   | "C-GRIND-FINER-BITTER"
   | "C-GRIND-COARSER-SOUR"
   | "C-YIELD-UP-WATERY";
@@ -214,24 +212,6 @@ export const BASE_RULES: Record<BaseRuleId, BaseRuleResultTemplate> = {
     uncertainty: ["맛 설명을 구조화하지 못해 추천 신뢰도가 낮다."],
     keepVariables: ["grind_size", "dose", "yield"],
   },
-};
-
-export const BREW_TIME_BANDS: Record<
-  BrewTimeBand,
-  { label: BrewTimeBand; condition: string }
-> = {
-  short: { label: "short", condition: "< 25s" },
-  normal: { label: "normal", condition: "25s - 32s" },
-  long: { label: "long", condition: "> 32s" },
-};
-
-export const BREW_RATIO_BANDS: Record<
-  BrewRatioBand,
-  { label: BrewRatioBand; condition: string }
-> = {
-  low: { label: "low", condition: "< 1.7" },
-  target: { label: "target", condition: "1.7 - 2.3" },
-  high: { label: "high", condition: "> 2.3" },
 };
 
 export const LIGHT_ROAST_RANGES: ReadonlySet<RoastRange> = new Set([

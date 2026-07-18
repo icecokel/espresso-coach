@@ -31,7 +31,7 @@ export const sampleNoChangeRecommendation: RecommendationResult = {
   ],
 };
 
-export const sampleBeanSession: BeanSession = {
+const sampleBeanSession: BeanSession = {
   id: "session_001",
   name: "New bean session 2026-06-04",
   beanName: "Ethiopia Guji",

@@ -19,7 +19,7 @@ export type RecommendationActionId =
   | "A-PUCK-PREP-CHECK"
   | "A-NO-CHANGE";
 
-export interface RecommendationActionCatalogEntry {
+interface RecommendationActionCatalogEntry {
   id: RecommendationActionId;
   variable: RecommendationActionVariable;
   direction: RecommendationActionDirection;
@@ -27,7 +27,7 @@ export interface RecommendationActionCatalogEntry {
   message: string;
 }
 
-export const RECOMMENDATION_ACTION_CATALOG: Record<
+const RECOMMENDATION_ACTION_CATALOG: Record<
   RecommendationActionId,
   RecommendationActionCatalogEntry
 > = {

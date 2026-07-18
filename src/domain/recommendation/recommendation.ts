@@ -25,9 +25,7 @@ import {
   OBSERVATION_RULES,
   type BaseRuleId,
   type ObservationRuleId,
-  type PreviousShotRuleId,
   type RecommendationRuleId,
-  type RoastContextRuleId,
   type RuleResultTemplate,
 } from "./rules";
 
