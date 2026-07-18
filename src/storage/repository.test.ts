@@ -105,6 +105,30 @@ describe("EspressoCoachRepository", () => {
     ]);
   });
 
+  it("deletes only the latest shot and reuses the next sequential number", async () => {
+    const repository = createMemoryRepository({ now: () => now });
+    const session = await repository.createSession(createAutoBeanSession({ now }));
+    const firstShot = await repository.createShotWithNextNumber(
+      shotDraft(session.id, "shot_1"),
+    );
+    const secondShot = await repository.createShotWithNextNumber(
+      shotDraft(session.id, "shot_2"),
+    );
+
+    await expect(
+      repository.deleteLatestShot(session.id, firstShot.id),
+    ).rejects.toThrow("Only the latest shot can be deleted");
+
+    await repository.deleteLatestShot(session.id, secondShot.id);
+    await expect(repository.getShot(secondShot.id)).resolves.toBeUndefined();
+    await expect(repository.listShots(session.id)).resolves.toEqual([firstShot]);
+
+    const replacement = await repository.createShotWithNextNumber(
+      shotDraft(session.id, "shot_replacement"),
+    );
+    expect(replacement.shotNumber).toBe(2);
+  });
+
   it("blocks shots for archived sessions until they are restored", async () => {
     let currentNow = "2026-06-20T18:00:00+09:00";
     const repository = createMemoryRepository({ now: () => currentNow });
@@ -120,6 +144,9 @@ describe("EspressoCoachRepository", () => {
     );
     await expect(
       repository.createShotWithNextNumber(shotDraft(session.id, "shot_blocked")),
+    ).rejects.toThrow("Archived sessions cannot save shots");
+    await expect(
+      repository.deleteLatestShot(session.id, firstShot.id),
     ).rejects.toThrow("Archived sessions cannot save shots");
 
     currentNow = "2026-06-20T19:00:00+09:00";

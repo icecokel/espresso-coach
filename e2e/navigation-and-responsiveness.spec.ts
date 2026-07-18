@@ -2,7 +2,7 @@ import { expect, test, type Page } from "@playwright/test";
 
 const sessionName = "E2E 약중배전 세션";
 const noSessionsMessage =
-  "저장된 세션이 없습니다. 아래 정보를 저장하거나 바로 첫 샷을 기록하세요.";
+  "저장된 세션이 없습니다. 첫 샷은 새 세션에 자동으로 저장됩니다.";
 
 async function waitForInitialSessionLoad(page: Page) {
   await expect(page.getByText(noSessionsMessage)).toBeVisible();
@@ -33,10 +33,11 @@ test("empty submission stays on the diagnosis page and shows required field erro
 test("creates a named session and uses it from the session list", async ({ page }) => {
   await page.goto("/");
   await waitForInitialSessionLoad(page);
+  await page.getByRole("button", { name: "원두 정보 추가 또는 수정" }).click();
   await page.getByPlaceholder("예: 과테말라 7월").fill(sessionName);
   await page.getByPlaceholder("예: Guatemala Huehuetenango").fill("Colombia Huila");
   await page.getByPlaceholder("예: 동네 로스터리").fill("Seoul Roastery");
-  await page.getByRole("button", { name: "약중배전" }).click();
+  await page.getByRole("radio", { name: "약중배전" }).click();
   await page.getByRole("button", { name: "세션 생성" }).click();
 
   await page.getByRole("link", { name: "전체 세션 보기" }).click();
@@ -51,7 +52,34 @@ test("creates a named session and uses it from the session list", async ({ page 
   await useSession.click();
 
   await expect(page).toHaveURL(/\/?sessionId=[^&]+/);
-  await expect(page.getByRole("button", { name: sessionName })).toBeVisible();
+  await expect(page.getByRole("radio", { name: sessionName })).toBeVisible();
+});
+
+test("keeps optional setup collapsed and exposes checked selection state", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.goto("/");
+  await waitForInitialSessionLoad(page);
+
+  await expect(page.getByLabel("맛")).toBeVisible();
+  await expect(page.getByLabel("세션 이름")).toHaveCount(0);
+  await expect(page.getByRole("radio", { name: "변경 없음" })).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "원두 정보 추가 또는 수정" }),
+  ).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("button", { name: "선택 관찰 열기" })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
+
+  await page.getByRole("button", { name: "원두 정보 추가 또는 수정" }).click();
+  await expect(page.getByLabel("세션 이름")).toBeVisible();
+  await expect(page.getByRole("button", { name: "원두 정보 닫기" })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
+  await expect(page.getByRole("radio", { name: "배전도 모름" })).toBeChecked();
 });
 
 for (const [path, message] of [

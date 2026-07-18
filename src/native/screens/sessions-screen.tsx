@@ -1,13 +1,14 @@
-import { Link, router } from "expo-router";
+import { Link, router, useLocalSearchParams } from "expo-router";
 import {
   Archive,
   ChevronRight,
   ClipboardList,
   Coffee,
   History,
+  Plus,
   RotateCcw,
 } from "lucide-react-native";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Pressable,
   ScrollView,
@@ -45,28 +46,50 @@ const initialSessionFormState: SessionFormState = {
 };
 
 export function SessionsScreen() {
+  const params = useLocalSearchParams<{ editSessionId?: string | string[] }>();
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
+  const scrollRef = useRef<ScrollView>(null);
   const [sessions, setSessions] = useState<BeanSession[]>([]);
   const [editingSessionId, setEditingSessionId] = useState<string | null>(null);
   const [sessionForm, setSessionForm] = useState<SessionFormState>(
     initialSessionFormState,
   );
   const [error, setError] = useState<string | undefined>();
+  const [loadError, setLoadError] = useState<string | undefined>();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isEditorOpen, setIsEditorOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [pendingSessionActionId, setPendingSessionActionId] = useState<
     string | undefined
   >();
 
   useEffect(() => {
-    void loadSessions();
-  }, []);
+    void loadSessions(getRouteEditSessionId(params.editSessionId));
+  }, [params.editSessionId]);
 
-  async function loadSessions() {
+  useEffect(() => {
+    if (isEditorOpen) {
+      scrollRef.current?.scrollTo({ animated: true, y: 0 });
+    }
+  }, [editingSessionId, isEditorOpen]);
+
+  async function loadSessions(preferredEditSessionId?: string) {
+    setIsLoading(true);
+    setLoadError(undefined);
     try {
-      setSessions(await repository.listSessions());
+      const nextSessions = await repository.listSessions();
+      setSessions(nextSessions);
+      const preferredSession = preferredEditSessionId
+        ? nextSessions.find((session) => session.id === preferredEditSessionId)
+        : undefined;
+      if (preferredSession) {
+        handleEditSession(preferredSession);
+      }
     } catch {
-      setError("세션 목록을 불러오지 못했습니다.");
+      setLoadError("세션 목록을 불러오지 못했습니다.");
+    } finally {
+      setIsLoading(false);
     }
   }
 
@@ -91,6 +114,8 @@ export function SessionsScreen() {
       setEditingSessionId(savedSession.id);
       setSessionForm(formFromSession(savedSession));
       setSessions(await repository.listSessions());
+      setIsEditorOpen(false);
+      clearEditSessionRoute();
     } catch {
       setError("세션을 저장하지 못했습니다. 다시 시도해주세요.");
     } finally {
@@ -102,12 +127,29 @@ export function SessionsScreen() {
     setEditingSessionId(session.id);
     setSessionForm(formFromSession(session));
     setError(undefined);
+    setIsEditorOpen(true);
   }
 
   function handleNewSession() {
     setEditingSessionId(null);
     setSessionForm(initialSessionFormState);
     setError(undefined);
+    setIsEditorOpen(true);
+    clearEditSessionRoute();
+  }
+
+  function handleCloseEditor() {
+    setEditingSessionId(null);
+    setSessionForm(initialSessionFormState);
+    setError(undefined);
+    setIsEditorOpen(false);
+    clearEditSessionRoute();
+  }
+
+  function clearEditSessionRoute() {
+    if (getRouteEditSessionId(params.editSessionId)) {
+      router.replace("/sessions");
+    }
   }
 
   function handleUseSession(session: BeanSession) {
@@ -146,7 +188,7 @@ export function SessionsScreen() {
           ? await repository.archiveSession(session.id)
           : await repository.restoreSession(session.id);
       if (editingSessionId === changedSession.id && changedSession.status === "archived") {
-        handleNewSession();
+        handleCloseEditor();
       }
       setSessions(await repository.listSessions());
     } catch {
@@ -273,17 +315,67 @@ export function SessionsScreen() {
   return (
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
+      ref={scrollRef}
       style={styles.screen}
       contentContainerStyle={styles.content}
     >
       <View style={styles.headerRow}>
-        <View style={styles.headerIcon}>
-          <ClipboardList color={colors.accent} size={18} strokeWidth={2} />
+        <View style={styles.headerIdentity}>
+          <View style={styles.headerIcon}>
+            <ClipboardList color={colors.accent} size={18} strokeWidth={2} />
+          </View>
+          <View>
+            <Text selectable style={styles.kicker}>
+              세션
+            </Text>
+            <Text selectable style={styles.screenTitle}>
+              원두 세션
+            </Text>
+          </View>
         </View>
-        <Text selectable style={styles.kicker}>
-          세션
-        </Text>
+        <Pressable
+          accessibilityLabel="새 세션 만들기"
+          accessibilityRole="button"
+          onPress={handleNewSession}
+          style={styles.smallDarkButton}
+        >
+          <Plus color={colors.textInverse} size={16} strokeWidth={2} />
+          <Text selectable style={styles.smallDarkButtonText}>
+            새 세션
+          </Text>
+        </Pressable>
       </View>
+
+      {isLoading ? (
+        <Text selectable style={styles.mutedText}>
+          세션을 불러오는 중입니다.
+        </Text>
+      ) : null}
+
+      {loadError ? (
+        <View style={styles.errorPanel}>
+          <Text selectable style={styles.errorText}>
+            {loadError}
+          </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => void loadSessions(getRouteEditSessionId(params.editSessionId))}
+            style={styles.secondaryButton}
+          >
+            <Text selectable style={styles.secondaryButtonText}>
+              다시 시도
+            </Text>
+          </Pressable>
+        </View>
+      ) : null}
+
+      {error ? (
+        <Text selectable style={styles.errorText}>
+          {error}
+        </Text>
+      ) : null}
+
+      {isEditorOpen ? (
       <View style={styles.editorPanel}>
         <Text selectable style={styles.title}>
           {editingSessionId ? "세션 수정" : "새 세션"}
@@ -317,7 +409,11 @@ export function SessionsScreen() {
         <View style={styles.optionGrid}>
           {roastRangeOptions.map((option) => (
             <Pressable
-              accessibilityRole="button"
+              aria-checked={sessionForm.roastRange === option.value}
+              accessibilityRole="radio"
+              accessibilityState={{
+                checked: sessionForm.roastRange === option.value,
+              }}
               key={option.value}
               onPress={() =>
                 setSessionForm({ ...sessionForm, roastRange: option.value })
@@ -339,15 +435,14 @@ export function SessionsScreen() {
             </Pressable>
           ))}
         </View>
-        {error ? (
-          <Text selectable style={styles.errorText}>
-            {error}
-          </Text>
-        ) : null}
         <View style={styles.editorActions}>
-          <Pressable accessibilityRole="button" onPress={handleNewSession} style={styles.secondaryButton}>
+          <Pressable
+            accessibilityRole="button"
+            onPress={handleCloseEditor}
+            style={styles.secondaryButton}
+          >
             <Text selectable style={styles.secondaryButtonText}>
-              새로 입력
+              취소
             </Text>
           </Pressable>
           <Pressable
@@ -363,7 +458,9 @@ export function SessionsScreen() {
           </Pressable>
         </View>
       </View>
-      {sessions.length === 0 ? (
+      ) : null}
+
+      {!isLoading && sessions.length === 0 ? (
         <View style={styles.emptyPanel}>
           <Text selectable style={styles.emptyText}>
             아직 저장된 세션이 없습니다.
@@ -377,7 +474,7 @@ export function SessionsScreen() {
             </Pressable>
           </Link>
         </View>
-      ) : (
+      ) : sessions.length > 0 ? (
         <>
           {activeSessions.length > 0 ? (
             <View style={styles.sessionSection}>
@@ -396,7 +493,7 @@ export function SessionsScreen() {
             </View>
           ) : null}
         </>
-      )}
+      ) : null}
     </ScrollView>
   );
 }
@@ -413,6 +510,9 @@ function createStyles(colors: AppColors) {
     backgroundColor: colors.background,
   },
   content: {
+    width: "100%",
+    maxWidth: layout.contentMaxWidth,
+    alignSelf: "center",
     gap: spacing.md,
     padding: layout.screenPadding,
     paddingBottom: layout.scrollBottomPadding,
@@ -425,7 +525,18 @@ function createStyles(colors: AppColors) {
   headerRow: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: spacing.sm,
+  },
+  headerIdentity: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: spacing.sm,
+  },
+  screenTitle: {
+    ...typography.screenTitle,
+    color: colors.text,
   },
   headerIcon: {
     width: 34,
@@ -596,6 +707,10 @@ function createStyles(colors: AppColors) {
     ...typography.label,
     color: colors.danger,
   },
+  errorPanel: {
+    gap: spacing.sm,
+    alignItems: "flex-start",
+  },
   cardActions: {
     flexDirection: "row",
     flexWrap: "wrap",
@@ -660,6 +775,7 @@ function SessionInput({
         {label}
       </Text>
       <TextInput
+        accessibilityLabel={label}
         placeholder={placeholder}
         placeholderTextColor={colors.muted}
         onChangeText={onChangeText}
@@ -700,6 +816,12 @@ function formatSessionName(value: string, now: string): string {
 function optionalText(value: string): string | undefined {
   const trimmed = value.trim();
   return trimmed.length > 0 ? trimmed : undefined;
+}
+
+function getRouteEditSessionId(
+  value: string | string[] | undefined,
+): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
 }
 
 type SessionsStyles = ReturnType<typeof createStyles>;

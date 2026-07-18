@@ -3,8 +3,11 @@ import {
   Archive,
   ChevronRight,
   ClipboardList,
+  Coffee,
   Gauge,
   History,
+  Pencil,
+  RefreshCw,
   RotateCcw,
   Target,
 } from "lucide-react-native";
@@ -35,6 +38,7 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
   );
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [statusError, setStatusError] = useState<string | undefined>();
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!sessionId) {
@@ -77,23 +81,38 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
     return () => {
       isActive = false;
     };
-  }, [sessionId]);
+  }, [reloadKey, sessionId]);
 
   if (detailState === "loading") {
-    return <StatePanel styles={styles} message="세션 기록을 불러오는 중입니다." />;
+    return (
+      <StatePanel
+        iconColor={colors.textInverse}
+        styles={styles}
+        message="세션 기록을 불러오는 중입니다."
+      />
+    );
   }
 
   if (detailState === "error") {
     return (
       <StatePanel
+        iconColor={colors.textInverse}
         styles={styles}
         message="세션 기록을 불러오지 못했습니다. 다시 열어주세요."
+        onRetry={() => setReloadKey((key) => key + 1)}
       />
     );
   }
 
   if (detailState === "not-found" || !session) {
-    return <StatePanel styles={styles} message="세션 기록을 찾을 수 없습니다." />;
+    return (
+      <StatePanel
+        iconColor={colors.textInverse}
+        styles={styles}
+        message="세션 기록을 찾을 수 없습니다."
+        showBackLink
+      />
+    );
   }
 
   const latestShot = shots[shots.length - 1];
@@ -134,18 +153,22 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
           <View style={styles.headerIcon}>
             <ClipboardList color={colors.accent} size={18} strokeWidth={2} />
           </View>
-          <View>
-          <Text selectable style={styles.kicker}>
-            세션
-          </Text>
-          <Text selectable style={styles.title}>
-            {session.name}
-          </Text>
+          <View style={styles.headerTitleText}>
+            <Text selectable style={styles.kicker}>
+              세션
+            </Text>
+            <Text accessibilityRole="header" selectable style={styles.title}>
+              {session.name}
+            </Text>
           </View>
         </View>
         <View style={styles.headerMeta}>
           <View style={styles.statusBadge}>
-            <Text selectable style={styles.statusBadgeText}>
+            <Text
+              accessibilityLabel={`세션 상태: ${formatSessionStatus(session.status)}`}
+              selectable
+              style={styles.statusBadgeText}
+            >
               {formatSessionStatus(session.status)}
             </Text>
           </View>
@@ -159,6 +182,30 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
       </View>
 
       <View style={styles.statusActionRow}>
+        {session.status === "active" ? (
+          <Link
+            href={{ pathname: "/", params: { sessionId: session.id } }}
+            asChild
+          >
+            <Pressable accessibilityRole="link" style={styles.primaryActionButton}>
+              <Coffee color={colors.textInverse} size={16} strokeWidth={2} />
+              <Text selectable style={styles.primaryActionButtonText}>
+                다음 샷 기록
+              </Text>
+            </Pressable>
+          </Link>
+        ) : null}
+        <Link
+          href={{ pathname: "/sessions", params: { editSessionId: session.id } }}
+          asChild
+        >
+          <Pressable accessibilityRole="link" style={styles.secondaryActionButton}>
+            <Pencil color={colors.primary} size={16} strokeWidth={2} />
+            <Text selectable style={styles.secondaryActionButtonText}>
+              세션 수정
+            </Text>
+          </Pressable>
+        </Link>
         <Pressable
           accessibilityLabel={
             session.status === "active" ? "세션 보관" : "세션 복원"
@@ -168,25 +215,25 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
           disabled={isUpdatingStatus}
           onPress={() => void handleSessionStatusAction()}
           style={[
-            styles.statusActionButton,
-            isUpdatingStatus && styles.statusActionButtonDisabled,
+            styles.secondaryActionButton,
+            isUpdatingStatus && styles.actionButtonDisabled,
           ]}
         >
           {session.status === "active" ? (
-            <Archive color={colors.textInverse} size={16} strokeWidth={2} />
+            <Archive color={colors.primary} size={16} strokeWidth={2} />
           ) : (
-            <RotateCcw color={colors.textInverse} size={16} strokeWidth={2} />
+            <RotateCcw color={colors.primary} size={16} strokeWidth={2} />
           )}
-          <Text selectable style={styles.statusActionButtonText}>
+          <Text selectable style={styles.secondaryActionButtonText}>
             {session.status === "active" ? "보관" : "복원"}
           </Text>
         </Pressable>
-        {statusError ? (
-          <Text selectable style={styles.statusError}>
-            {statusError}
-          </Text>
-        ) : null}
       </View>
+      {statusError ? (
+        <Text selectable style={styles.statusError}>
+          {statusError}
+        </Text>
+      ) : null}
 
       <View style={styles.summaryStrip}>
         <SummaryItem
@@ -256,13 +303,42 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
   );
 }
 
-function StatePanel({ message, styles }: { message: string; styles: SessionDetailStyles }) {
+function StatePanel({
+  iconColor,
+  message,
+  onRetry,
+  showBackLink = false,
+  styles,
+}: {
+  iconColor: string;
+  message: string;
+  onRetry?: () => void;
+  showBackLink?: boolean;
+  styles: SessionDetailStyles;
+}) {
   return (
     <View style={styles.center}>
       <View style={styles.statePanel}>
         <Text selectable style={styles.stateText}>
           {message}
         </Text>
+        {onRetry ? (
+          <Pressable accessibilityRole="button" onPress={onRetry} style={styles.primaryActionButton}>
+            <RefreshCw color={iconColor} size={16} strokeWidth={2} />
+            <Text selectable style={styles.primaryActionButtonText}>
+              다시 시도
+            </Text>
+          </Pressable>
+        ) : null}
+        {showBackLink ? (
+          <Link href="/sessions" asChild>
+            <Pressable accessibilityRole="link" style={styles.secondaryActionButton}>
+              <Text selectable style={styles.secondaryActionButtonText}>
+                세션 목록으로
+              </Text>
+            </Pressable>
+          </Link>
+        ) : null}
       </View>
     </View>
   );
@@ -309,6 +385,9 @@ function createStyles(colors: AppColors) {
     backgroundColor: colors.background,
   },
   content: {
+    width: "100%",
+    maxWidth: layout.contentMaxWidth,
+    alignSelf: "center",
     gap: spacing.md,
     padding: layout.screenPadding,
     paddingBottom: layout.scrollBottomPadding,
@@ -321,6 +400,8 @@ function createStyles(colors: AppColors) {
     backgroundColor: colors.background,
   },
   statePanel: {
+    alignItems: "flex-start",
+    gap: spacing.md,
     borderColor: colors.border,
     borderRadius: radius.sm,
     borderWidth: 1,
@@ -332,9 +413,7 @@ function createStyles(colors: AppColors) {
     color: colors.muted,
   },
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
+    alignItems: "flex-start",
     gap: spacing.md,
   },
   headerTitleRow: {
@@ -342,6 +421,11 @@ function createStyles(colors: AppColors) {
     flexDirection: "row",
     alignItems: "center",
     gap: spacing.sm,
+    minWidth: 0,
+  },
+  headerTitleText: {
+    flex: 1,
+    minWidth: 0,
   },
   headerMeta: {
     flexDirection: "row",
@@ -386,24 +470,42 @@ function createStyles(colors: AppColors) {
     color: colors.primary,
   },
   statusActionRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: spacing.sm,
   },
-  statusActionButton: {
+  primaryActionButton: {
     flexDirection: "row",
-    alignSelf: "flex-start",
     alignItems: "center",
+    justifyContent: "center",
     gap: spacing.sm,
     minHeight: layout.minTouchSize,
     borderRadius: radius.sm,
     paddingHorizontal: spacing.lg,
     backgroundColor: colors.primaryDark,
   },
-  statusActionButtonDisabled: {
-    opacity: 0.65,
-  },
-  statusActionButtonText: {
+  primaryActionButtonText: {
     ...typography.label,
     color: colors.textInverse,
+  },
+  secondaryActionButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: spacing.sm,
+    minHeight: layout.minTouchSize,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+  },
+  secondaryActionButtonText: {
+    ...typography.label,
+    color: colors.primary,
+  },
+  actionButtonDisabled: {
+    opacity: 0.65,
   },
   statusError: {
     ...typography.label,

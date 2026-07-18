@@ -1,4 +1,4 @@
-import { Link } from "expo-router";
+import { Link, router } from "expo-router";
 import {
   ArrowRight,
   CircleCheck,
@@ -6,9 +6,11 @@ import {
   Eye,
   Gauge,
   ListChecks,
+  RefreshCw,
   Scale,
   SearchCheck,
   Timer,
+  Trash2,
 } from "lucide-react-native";
 import { MagicWand } from "phosphor-react-native/src/icons/MagicWand";
 import { Target } from "phosphor-react-native/src/icons/Target";
@@ -41,6 +43,11 @@ export function ShotDetailScreen({ shotId }: { shotId?: string }) {
   const [detailState, setDetailState] = useState<DetailState>(
     shotId ? "loading" : "not-found",
   );
+  const [canDeleteLatest, setCanDeleteLatest] = useState(false);
+  const [isDeleteConfirming, setIsDeleteConfirming] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | undefined>();
+  const [reloadKey, setReloadKey] = useState(0);
 
   useEffect(() => {
     if (!shotId) {
@@ -51,26 +58,67 @@ export function ShotDetailScreen({ shotId }: { shotId?: string }) {
 
     let isActive = true;
     setDetailState("loading");
-    void repository
-      .getShot(shotId)
-      .then((value) => {
+    void (async () => {
+      try {
+        const value = await repository.getShot(shotId);
         if (!isActive) {
           return;
         }
-        setShot(value ?? null);
-        setDetailState(value ? "ready" : "not-found");
-      })
-      .catch(() => {
+        if (!value) {
+          setShot(null);
+          setCanDeleteLatest(false);
+          setDetailState("not-found");
+          return;
+        }
+
+        const [session, sessionShots] = await Promise.all([
+          repository.getSession(value.sessionId),
+          repository.listShots(value.sessionId),
+        ]);
+        if (!isActive) {
+          return;
+        }
+        setShot(value);
+        setCanDeleteLatest(
+          session?.status === "active" && sessionShots.at(-1)?.id === value.id,
+        );
+        setDetailState("ready");
+      } catch {
         if (isActive) {
           setShot(null);
+          setCanDeleteLatest(false);
           setDetailState("error");
         }
-      });
+      }
+    })();
 
     return () => {
       isActive = false;
     };
-  }, [shotId]);
+  }, [reloadKey, shotId]);
+
+  async function handleDeleteLatestShot() {
+    if (!shot || isDeleting) {
+      return;
+    }
+
+    setIsDeleting(true);
+    setDeleteError(undefined);
+    try {
+      await repository.deleteLatestShot(shot.sessionId, shot.id);
+      router.replace({
+        pathname: "/session/[sessionId]",
+        params: { sessionId: shot.sessionId },
+      });
+    } catch {
+      setDeleteError(
+        "최신 샷만 삭제할 수 있습니다. 세션 기록을 다시 확인해주세요.",
+      );
+      setIsDeleteConfirming(false);
+    } finally {
+      setIsDeleting(false);
+    }
+  }
 
   if (detailState === "loading") {
     return (
@@ -91,6 +139,16 @@ export function ShotDetailScreen({ shotId }: { shotId?: string }) {
           <Text selectable style={styles.mutedText}>
             샷 기록을 불러오지 못했습니다. 다시 열어주세요.
           </Text>
+          <Pressable
+            accessibilityRole="button"
+            onPress={() => setReloadKey((key) => key + 1)}
+            style={styles.nextShotButton}
+          >
+            <RefreshCw color={colors.textInverse} size={16} strokeWidth={2} />
+            <Text selectable style={styles.nextShotButtonText}>
+              다시 시도
+            </Text>
+          </Pressable>
         </View>
       </View>
     );
@@ -103,6 +161,13 @@ export function ShotDetailScreen({ shotId }: { shotId?: string }) {
           <Text selectable style={styles.mutedText}>
             샷 기록을 찾을 수 없습니다.
           </Text>
+          <Link href="/sessions" asChild>
+            <Pressable accessibilityRole="link" style={styles.secondaryButton}>
+              <Text selectable style={styles.secondaryButtonText}>
+                세션 목록으로
+              </Text>
+            </Pressable>
+          </Link>
         </View>
       </View>
     );
@@ -200,6 +265,64 @@ export function ShotDetailScreen({ shotId }: { shotId?: string }) {
           {shot.extraction.tasteDescription}
         </Text>
       </View>
+
+      {canDeleteLatest ? (
+        <View style={styles.card}>
+          <View style={styles.sectionTitleRow}>
+            <View style={styles.sectionIcon}>
+              <Trash2 color={colors.danger} size={18} strokeWidth={2} />
+            </View>
+            <Text selectable style={styles.sectionTitle}>
+              기록 관리
+            </Text>
+          </View>
+          {isDeleteConfirming ? (
+            <>
+              <Text selectable style={styles.bodyText}>
+                이 샷과 추천 기록을 삭제합니다. 삭제 후에는 되돌릴 수 없습니다.
+              </Text>
+              <View style={styles.deleteActions}>
+                <Pressable
+                  accessibilityRole="button"
+                  disabled={isDeleting}
+                  onPress={() => setIsDeleteConfirming(false)}
+                  style={styles.secondaryButton}
+                >
+                  <Text selectable style={styles.secondaryButtonText}>
+                    취소
+                  </Text>
+                </Pressable>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityState={{ disabled: isDeleting }}
+                  disabled={isDeleting}
+                  onPress={() => void handleDeleteLatestShot()}
+                  style={[styles.deleteButton, isDeleting && styles.buttonDisabled]}
+                >
+                  <Text selectable style={styles.deleteButtonText}>
+                    {isDeleting ? "삭제 중" : "최신 샷 삭제"}
+                  </Text>
+                </Pressable>
+              </View>
+            </>
+          ) : (
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => setIsDeleteConfirming(true)}
+              style={styles.secondaryButton}
+            >
+              <Text selectable style={styles.deleteActionText}>
+                최신 샷 삭제
+              </Text>
+            </Pressable>
+          )}
+          {deleteError ? (
+            <Text selectable style={styles.deleteError}>
+              {deleteError}
+            </Text>
+          ) : null}
+        </View>
+      ) : null}
     </ScrollView>
   );
 }
@@ -270,6 +393,9 @@ function createStyles(colors: AppColors) {
     backgroundColor: colors.background,
   },
   content: {
+    width: "100%",
+    maxWidth: layout.contentMaxWidth,
+    alignSelf: "center",
     gap: spacing.lg,
     padding: layout.screenPadding,
     paddingBottom: layout.scrollBottomPadding,
@@ -282,6 +408,8 @@ function createStyles(colors: AppColors) {
     backgroundColor: colors.background,
   },
   statePanel: {
+    alignItems: "flex-start",
+    gap: spacing.md,
     borderColor: colors.border,
     borderRadius: radius.sm,
     borderWidth: 1,
@@ -345,6 +473,48 @@ function createStyles(colors: AppColors) {
   nextShotButtonText: {
     ...typography.button,
     color: colors.textInverse,
+  },
+  secondaryButton: {
+    minHeight: layout.minTouchSize,
+    alignItems: "center",
+    justifyContent: "center",
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.surface,
+  },
+  secondaryButtonText: {
+    ...typography.label,
+    color: colors.primary,
+  },
+  deleteActions: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: spacing.sm,
+  },
+  deleteButton: {
+    minHeight: layout.minTouchSize,
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: radius.sm,
+    paddingHorizontal: spacing.lg,
+    backgroundColor: colors.danger,
+  },
+  deleteButtonText: {
+    ...typography.label,
+    color: colors.textInverse,
+  },
+  deleteActionText: {
+    ...typography.label,
+    color: colors.danger,
+  },
+  deleteError: {
+    ...typography.label,
+    color: colors.danger,
+  },
+  buttonDisabled: {
+    opacity: 0.65,
   },
   sectionTitle: {
     ...typography.sectionTitle,

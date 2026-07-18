@@ -1,6 +1,8 @@
 import { Link, router, useLocalSearchParams } from "expo-router";
 import {
+  ChevronDown,
   ChevronRight,
+  ChevronUp,
   ClipboardList,
   Coffee,
   Droplets,
@@ -20,6 +22,7 @@ import {
   StyleSheet,
   Text,
   TextInput,
+  useWindowDimensions,
   View,
 } from "react-native";
 import { buildRecommendation } from "../../domain/recommendation";
@@ -144,6 +147,7 @@ const archivedSessionSubmitError =
 
 export function QuickDiagnosisScreen() {
   const params = useLocalSearchParams<{ sessionId?: string | string[] }>();
+  const { width: viewportWidth } = useWindowDimensions();
   const { colors } = useAppTheme();
   const styles = createStyles(colors);
   const [form, setForm] = useState<FormState>(initialFormState);
@@ -161,6 +165,8 @@ export function QuickDiagnosisScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const submissionLockRef = useRef(createSubmissionLock());
   const [isSavingSession, setIsSavingSession] = useState(false);
+  const [isSessionDetailsOpen, setIsSessionDetailsOpen] = useState(false);
+  const [isObservationOpen, setIsObservationOpen] = useState(false);
   const [isLoadingSessions, setIsLoadingSessions] = useState(true);
   const [sessionLoadError, setSessionLoadError] = useState<string | undefined>();
   const [sessions, setSessions] = useState<BeanSession[]>([]);
@@ -236,6 +242,7 @@ export function QuickDiagnosisScreen() {
     setBlockedArchivedSessionId(undefined);
     setActiveSession(session);
     setSessionForm(formFromSession(session));
+    setIsSessionDetailsOpen(false);
     setSessionError(undefined);
     try {
       setRecentShots(await repository.listShots(session.id));
@@ -269,6 +276,7 @@ export function QuickDiagnosisScreen() {
       setBlockedArchivedSessionId(undefined);
       setSessionForm(formFromSession(savedSession));
       setRecentShots(await repository.listShots(savedSession.id));
+      setIsSessionDetailsOpen(false);
     } catch {
       setSessionError("세션을 저장하지 못했습니다. 다시 시도해주세요.");
     } finally {
@@ -282,6 +290,7 @@ export function QuickDiagnosisScreen() {
     setRecentShots([]);
     setSessionError(undefined);
     setSessionForm(initialSessionFormState);
+    setIsSessionDetailsOpen(true);
   }
 
   async function handleSubmit(
@@ -488,159 +497,6 @@ export function QuickDiagnosisScreen() {
       <View style={styles.form}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionIcon}>
-            <Coffee color={colors.accent} size={18} strokeWidth={2} />
-          </View>
-          <View>
-            <Text selectable style={styles.sectionKicker}>
-              현재 세션
-            </Text>
-            <Text selectable style={styles.sectionTitle}>
-              원두 정보
-            </Text>
-          </View>
-        </View>
-
-        {isLoadingSessions ? (
-          <Text selectable style={styles.mutedText}>
-            세션을 불러오는 중입니다.
-          </Text>
-        ) : null}
-        {sessionLoadError ? (
-          <Text selectable style={styles.submitError}>
-            {sessionLoadError}
-          </Text>
-        ) : null}
-
-        <View style={styles.sessionPicker}>
-          {sessions.length === 0 ? (
-            <Text selectable style={styles.mutedText}>
-              저장된 세션이 없습니다. 아래 정보를 저장하거나 바로 첫 샷을 기록하세요.
-            </Text>
-          ) : (
-            sessions.map((session) => (
-              <Pressable
-                accessibilityRole="button"
-                key={session.id}
-                onPress={() => void handleSelectSession(session)}
-                style={[
-                  styles.sessionOption,
-                  activeSession?.id === session.id && styles.sessionOptionSelected,
-                ]}
-              >
-                <Text
-                  selectable
-                  style={[
-                    styles.sessionOptionText,
-                    activeSession?.id === session.id && styles.sessionOptionTextSelected,
-                  ]}
-                >
-                  {session.name}
-                </Text>
-                <Text
-                  selectable
-                  style={[
-                    styles.sessionOptionMeta,
-                    activeSession?.id === session.id && styles.sessionOptionTextSelected,
-                  ]}
-                >
-                  {formatRoastRange(session.roastProfile.range)}
-                </Text>
-              </Pressable>
-            ))
-          )}
-        </View>
-
-        <View style={styles.numberGrid}>
-          <InputField
-            colors={colors}
-            label="세션 이름"
-            styles={styles}
-            value={sessionForm.name}
-            onChangeText={(name) => setSessionForm({ ...sessionForm, name })}
-            placeholder="예: 과테말라 7월"
-          />
-          <InputField
-            colors={colors}
-            label="원두명"
-            styles={styles}
-            value={sessionForm.beanName}
-            onChangeText={(beanName) => setSessionForm({ ...sessionForm, beanName })}
-            placeholder="예: Guatemala Huehuetenango"
-          />
-          <InputField
-            colors={colors}
-            label="로스터"
-            styles={styles}
-            value={sessionForm.roaster}
-            onChangeText={(roaster) => setSessionForm({ ...sessionForm, roaster })}
-            placeholder="예: 동네 로스터리"
-          />
-        </View>
-
-        <View style={styles.group}>
-          <Text selectable style={styles.label}>
-            배전 범위
-          </Text>
-          <View style={styles.optionGrid}>
-            {roastRangeOptions.map((option) => (
-              <Pressable
-                accessibilityRole="button"
-                key={option.value}
-                onPress={() =>
-                  setSessionForm({ ...sessionForm, roastRange: option.value })
-                }
-                style={[
-                  styles.option,
-                  sessionForm.roastRange === option.value && styles.optionSelected,
-                ]}
-              >
-                <Text
-                  selectable
-                  style={[
-                    styles.optionText,
-                    sessionForm.roastRange === option.value &&
-                      styles.optionTextSelected,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            ))}
-          </View>
-        </View>
-
-        {sessionError ? (
-          <Text selectable style={styles.submitError}>
-            {sessionError}
-          </Text>
-        ) : null}
-
-        <View style={styles.sessionActions}>
-          <Pressable
-            accessibilityRole="button"
-            onPress={handleNewSessionDraft}
-            style={styles.secondaryButton}
-          >
-            <Text selectable style={styles.secondaryButtonText}>
-              새 세션
-            </Text>
-          </Pressable>
-          <Pressable
-            accessibilityRole="button"
-            disabled={isSavingSession}
-            onPress={handleSaveSession}
-            style={[styles.saveButton, isSavingSession && styles.primaryButtonDisabled]}
-          >
-            <Text selectable style={styles.saveButtonText}>
-              {isSavingSession ? "저장 중" : activeSession ? "세션 수정" : "세션 생성"}
-            </Text>
-          </Pressable>
-        </View>
-      </View>
-
-      <View style={styles.form}>
-        <View style={styles.sectionHeader}>
-          <View style={styles.sectionIcon}>
             <ClipboardList color={colors.accent} size={18} strokeWidth={2} />
           </View>
           <View>
@@ -674,43 +530,66 @@ export function QuickDiagnosisScreen() {
         ) : null}
 
         <View style={styles.numberGrid}>
-          <InputField
-            colors={colors}
-            icon={<Scale color={colors.accent} size={14} strokeWidth={2} />}
-            label="도징량"
-            styles={styles}
-            value={form.doseGrams}
-            onChangeText={(doseGrams) => handleMeasuredValueChange("doseGrams", doseGrams)}
-            placeholder="18.0"
-            suffix="g"
-            error={errors.doseGrams}
-          />
-          <InputField
-            colors={colors}
-            icon={<Droplets color={colors.accent} size={14} strokeWidth={2} />}
-            label="추출량"
-            styles={styles}
-            value={form.yieldGrams}
-            onChangeText={(yieldGrams) =>
-              handleMeasuredValueChange("yieldGrams", yieldGrams)
-            }
-            placeholder="36.0"
-            suffix="g"
-            error={errors.yieldGrams}
-          />
-          <InputField
-            colors={colors}
-            icon={<Timer color={colors.accent} size={14} strokeWidth={2} />}
-            label="시간"
-            styles={styles}
-            value={form.brewSeconds}
-            onChangeText={(brewSeconds) =>
-              handleMeasuredValueChange("brewSeconds", brewSeconds)
-            }
-            placeholder="28"
-            suffix="s"
-            error={errors.brewSeconds}
-          />
+          <View
+            style={[
+              styles.numberField,
+              viewportWidth < 360 && styles.numberFieldCompact,
+            ]}
+          >
+            <InputField
+              colors={colors}
+              icon={<Scale color={colors.accent} size={14} strokeWidth={2} />}
+              label="도징량"
+              styles={styles}
+              value={form.doseGrams}
+              onChangeText={(doseGrams) =>
+                handleMeasuredValueChange("doseGrams", doseGrams)
+              }
+              placeholder="18.0"
+              suffix="g"
+              error={errors.doseGrams}
+            />
+          </View>
+          <View
+            style={[
+              styles.numberField,
+              viewportWidth < 360 && styles.numberFieldCompact,
+            ]}
+          >
+            <InputField
+              colors={colors}
+              icon={<Droplets color={colors.accent} size={14} strokeWidth={2} />}
+              label="추출량"
+              styles={styles}
+              value={form.yieldGrams}
+              onChangeText={(yieldGrams) =>
+                handleMeasuredValueChange("yieldGrams", yieldGrams)
+              }
+              placeholder="36.0"
+              suffix="g"
+              error={errors.yieldGrams}
+            />
+          </View>
+          <View
+            style={[
+              styles.numberField,
+              viewportWidth < 360 && styles.numberFieldCompact,
+            ]}
+          >
+            <InputField
+              colors={colors}
+              icon={<Timer color={colors.accent} size={14} strokeWidth={2} />}
+              label="시간"
+              styles={styles}
+              value={form.brewSeconds}
+              onChangeText={(brewSeconds) =>
+                handleMeasuredValueChange("brewSeconds", brewSeconds)
+              }
+              placeholder="28"
+              suffix="s"
+              error={errors.brewSeconds}
+            />
+          </View>
         </View>
         {previousShot
           ? detectedMeasuredChanges.map((change) => (
@@ -728,128 +607,161 @@ export function QuickDiagnosisScreen() {
       <View style={styles.form}>
         <View style={styles.sectionHeader}>
           <View style={styles.sectionIcon}>
-            <SlidersHorizontal color={colors.accent} size={18} strokeWidth={2} />
+            <Coffee color={colors.accent} size={18} strokeWidth={2} />
           </View>
           <View>
             <Text selectable style={styles.sectionKicker}>
-              선택 관찰
+              현재 세션
             </Text>
             <Text selectable style={styles.sectionTitle}>
-              관찰
+              원두 정보
             </Text>
           </View>
         </View>
-        <InputField
-          colors={colors}
-          label="분쇄도 메모"
-          styles={styles}
-          value={form.grindNote}
-          onChangeText={(grindNote) => setForm({ ...form, grindNote })}
-          placeholder="예: 18 클릭"
-        />
 
-        <View style={styles.group}>
-          <Text selectable style={styles.label}>
-            퍽/흐름
+        {isLoadingSessions ? (
+          <Text selectable style={styles.mutedText}>
+            세션을 불러오는 중입니다.
           </Text>
-          <View style={styles.optionGrid}>
-            {prepOptions.map((option) => (
-              <Pressable
-                accessibilityRole="checkbox"
-                accessibilityState={{
-                  checked: form.prepObservations.includes(option.id),
-                }}
-                key={option.id}
-                onPress={() => togglePrepObservation(option.id)}
-                style={[
-                  styles.option,
-                  form.prepObservations.includes(option.id) && styles.optionSelected,
-                ]}
-              >
-                <Text
-                  selectable
-                  style={[
-                    styles.optionText,
-                    form.prepObservations.includes(option.id) &&
-                      styles.optionTextSelected,
-                  ]}
-                >
-                  {option.label}
-                </Text>
-              </Pressable>
-            ))}
+        ) : null}
+        {sessionLoadError ? (
+          <View style={styles.group}>
+            <Text selectable style={styles.submitError}>
+              {sessionLoadError}
+            </Text>
+            <Pressable
+              accessibilityRole="button"
+              onPress={() => void loadSessions(getRouteSessionId(params.sessionId))}
+              style={styles.secondaryButton}
+            >
+              <Text selectable style={styles.secondaryButtonText}>
+                다시 시도
+              </Text>
+            </Pressable>
           </View>
-        </View>
+        ) : null}
 
-        <View style={styles.group}>
-          <Text selectable style={styles.label}>
-            직전 샷 변경
-          </Text>
-          <View style={styles.optionGrid}>
-            {changeVariableOptions.map((option) => (
+        <View style={styles.sessionPicker}>
+          {sessions.length === 0 ? (
+            <Text selectable style={styles.mutedText}>
+              저장된 세션이 없습니다. 첫 샷은 새 세션에 자동으로 저장됩니다.
+            </Text>
+          ) : (
+            sessions.map((session) => (
               <Pressable
+                aria-checked={activeSession?.id === session.id}
                 accessibilityRole="radio"
                 accessibilityState={{
-                  selected: form.changedVariable === option.value,
+                  checked: activeSession?.id === session.id,
                 }}
-                key={option.value}
-                onPress={() =>
-                  setForm({
-                    ...form,
-                    changedVariable: option.value,
-                    changeDirection: "unknown",
-                    changeResult: "unknown",
-                  })
-                }
+                key={session.id}
+                onPress={() => void handleSelectSession(session)}
                 style={[
-                  styles.option,
-                  form.changedVariable === option.value && styles.optionSelected,
+                  styles.sessionOption,
+                  activeSession?.id === session.id && styles.sessionOptionSelected,
                 ]}
               >
                 <Text
                   selectable
                   style={[
-                    styles.optionText,
-                    form.changedVariable === option.value && styles.optionTextSelected,
+                    styles.sessionOptionText,
+                    activeSession?.id === session.id && styles.sessionOptionTextSelected,
                   ]}
                 >
-                  {option.label}
+                  {session.name}
+                </Text>
+                <Text
+                  selectable
+                  style={[
+                    styles.sessionOptionMeta,
+                    activeSession?.id === session.id && styles.sessionOptionTextSelected,
+                  ]}
+                >
+                  {formatRoastRange(session.roastProfile.range)}
                 </Text>
               </Pressable>
-            ))}
-          </View>
+            ))
+          )}
         </View>
 
-        {form.changedVariable !== "none" && form.changedVariable !== "unknown" ? (
+        <Pressable
+          aria-expanded={isSessionDetailsOpen}
+          accessibilityLabel={isSessionDetailsOpen ? "원두 정보 닫기" : "원두 정보 추가 또는 수정"}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isSessionDetailsOpen }}
+          onPress={() => setIsSessionDetailsOpen((open) => !open)}
+          style={styles.sectionToggle}
+        >
+          <Text selectable style={styles.secondaryButtonText}>
+            {isSessionDetailsOpen ? "원두 정보 닫기" : "원두 정보 추가·수정"}
+          </Text>
+          {isSessionDetailsOpen ? (
+            <ChevronUp color={colors.primary} size={18} strokeWidth={2} />
+          ) : (
+            <ChevronDown color={colors.primary} size={18} strokeWidth={2} />
+          )}
+        </Pressable>
+
+        {isSessionDetailsOpen ? (
           <>
+            <View style={styles.sessionFieldGrid}>
+              <InputField
+                colors={colors}
+                label="세션 이름"
+                styles={styles}
+                value={sessionForm.name}
+                onChangeText={(name) => setSessionForm({ ...sessionForm, name })}
+                placeholder="예: 과테말라 7월"
+              />
+              <InputField
+                colors={colors}
+                label="원두명"
+                styles={styles}
+                value={sessionForm.beanName}
+                onChangeText={(beanName) =>
+                  setSessionForm({ ...sessionForm, beanName })
+                }
+                placeholder="예: Guatemala Huehuetenango"
+              />
+              <InputField
+                colors={colors}
+                label="로스터"
+                styles={styles}
+                value={sessionForm.roaster}
+                onChangeText={(roaster) =>
+                  setSessionForm({ ...sessionForm, roaster })
+                }
+                placeholder="예: 동네 로스터리"
+              />
+            </View>
+
             <View style={styles.group}>
               <Text selectable style={styles.label}>
-                변경 방향
+                배전 범위
               </Text>
               <View style={styles.optionGrid}>
-                {getChangeDirectionOptions(form.changedVariable).map((option) => (
+                {roastRangeOptions.map((option) => (
                   <Pressable
+                    aria-checked={sessionForm.roastRange === option.value}
                     accessibilityRole="radio"
                     accessibilityState={{
-                      selected: form.changeDirection === option.value,
+                      checked: sessionForm.roastRange === option.value,
                     }}
                     key={option.value}
                     onPress={() =>
-                      setForm({
-                        ...form,
-                        changeDirection: option.value,
-                      })
+                      setSessionForm({ ...sessionForm, roastRange: option.value })
                     }
                     style={[
                       styles.option,
-                      form.changeDirection === option.value && styles.optionSelected,
+                      sessionForm.roastRange === option.value && styles.optionSelected,
                     ]}
                   >
                     <Text
                       selectable
                       style={[
                         styles.optionText,
-                        form.changeDirection === option.value && styles.optionTextSelected,
+                        sessionForm.roastRange === option.value &&
+                          styles.optionTextSelected,
                       ]}
                     >
                       {option.label}
@@ -858,51 +770,256 @@ export function QuickDiagnosisScreen() {
                 ))}
               </View>
             </View>
-            <View style={styles.group}>
-              <Text selectable style={styles.label}>
-                결과
+
+            {sessionError ? (
+              <Text selectable style={styles.submitError}>
+                {sessionError}
               </Text>
-              <View style={styles.optionGrid}>
-                {changeResultOptions.map((option) => (
-                  <Pressable
-                    accessibilityRole="radio"
-                    accessibilityState={{
-                      selected: form.changeResult === option.value,
-                    }}
-                    key={option.value}
-                    onPress={() =>
-                      setForm({
-                        ...form,
-                        changeResult: option.value,
-                      })
-                    }
-                    style={[
-                      styles.option,
-                      form.changeResult === option.value && styles.optionSelected,
-                    ]}
-                  >
-                    <Text
-                      selectable
-                      style={[
-                        styles.optionText,
-                        form.changeResult === option.value && styles.optionTextSelected,
-                      ]}
-                    >
-                      {option.label}
-                    </Text>
-                  </Pressable>
-                ))}
-              </View>
+            ) : null}
+
+            <View style={styles.sessionActions}>
+              <Pressable
+                accessibilityRole="button"
+                onPress={handleNewSessionDraft}
+                style={styles.secondaryButton}
+              >
+                <Text selectable style={styles.secondaryButtonText}>
+                  새 세션
+                </Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                disabled={isSavingSession}
+                onPress={handleSaveSession}
+                style={[
+                  styles.saveButton,
+                  isSavingSession && styles.primaryButtonDisabled,
+                ]}
+              >
+                <Text selectable style={styles.saveButtonText}>
+                  {isSavingSession
+                    ? "저장 중"
+                    : activeSession
+                      ? "세션 수정"
+                      : "세션 생성"}
+                </Text>
+              </Pressable>
             </View>
           </>
         ) : null}
+      </View>
 
-        {submitError ? (
-          <Text selectable style={styles.submitError}>
-            {submitError}
-          </Text>
+      <View style={styles.form}>
+        <Pressable
+          aria-expanded={isObservationOpen}
+          accessibilityLabel={isObservationOpen ? "선택 관찰 닫기" : "선택 관찰 열기"}
+          accessibilityRole="button"
+          accessibilityState={{ expanded: isObservationOpen }}
+          onPress={() => setIsObservationOpen((open) => !open)}
+          style={styles.sectionToggleHeader}
+        >
+          <View style={styles.sectionHeader}>
+            <View style={styles.sectionIcon}>
+              <SlidersHorizontal color={colors.accent} size={18} strokeWidth={2} />
+            </View>
+            <View>
+              <Text selectable style={styles.sectionKicker}>
+                선택 입력
+              </Text>
+              <Text selectable style={styles.sectionTitle}>
+                관찰 추가
+              </Text>
+            </View>
+          </View>
+          {isObservationOpen ? (
+            <ChevronUp color={colors.primary} size={20} strokeWidth={2} />
+          ) : (
+            <ChevronDown color={colors.primary} size={20} strokeWidth={2} />
+          )}
+        </Pressable>
+
+        {isObservationOpen ? (
+          <>
+            <InputField
+              colors={colors}
+              label="분쇄도 메모"
+              styles={styles}
+              value={form.grindNote}
+              onChangeText={(grindNote) => setForm({ ...form, grindNote })}
+              placeholder="예: 18 클릭"
+            />
+
+            <View style={styles.group}>
+              <Text selectable style={styles.label}>
+                퍽/흐름
+              </Text>
+              <View style={styles.optionGrid}>
+                {prepOptions.map((option) => (
+                  <Pressable
+                    aria-checked={form.prepObservations.includes(option.id)}
+                    accessibilityRole="checkbox"
+                    accessibilityState={{
+                      checked: form.prepObservations.includes(option.id),
+                    }}
+                    key={option.id}
+                    onPress={() => togglePrepObservation(option.id)}
+                    style={[
+                      styles.option,
+                      form.prepObservations.includes(option.id) &&
+                        styles.optionSelected,
+                    ]}
+                  >
+                    <Text
+                      selectable
+                      style={[
+                        styles.optionText,
+                        form.prepObservations.includes(option.id) &&
+                          styles.optionTextSelected,
+                      ]}
+                    >
+                      {option.label}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            </View>
+
+            {previousShot ? (
+              <>
+                <View style={styles.group}>
+                  <Text selectable style={styles.label}>
+                    직전 샷 변경
+                  </Text>
+                  <View style={styles.optionGrid}>
+                    {changeVariableOptions.map((option) => (
+                      <Pressable
+                        aria-checked={form.changedVariable === option.value}
+                        accessibilityRole="radio"
+                        accessibilityState={{
+                          checked: form.changedVariable === option.value,
+                        }}
+                        key={option.value}
+                        onPress={() =>
+                          setForm({
+                            ...form,
+                            changedVariable: option.value,
+                            changeDirection: "unknown",
+                            changeResult: "unknown",
+                          })
+                        }
+                        style={[
+                          styles.option,
+                          form.changedVariable === option.value && styles.optionSelected,
+                        ]}
+                      >
+                        <Text
+                          selectable
+                          style={[
+                            styles.optionText,
+                            form.changedVariable === option.value &&
+                              styles.optionTextSelected,
+                          ]}
+                        >
+                          {option.label}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                </View>
+
+                {form.changedVariable !== "none" &&
+                form.changedVariable !== "unknown" ? (
+                  <>
+                    <View style={styles.group}>
+                      <Text selectable style={styles.label}>
+                        변경 방향
+                      </Text>
+                      <View style={styles.optionGrid}>
+                        {getChangeDirectionOptions(form.changedVariable).map((option) => (
+                          <Pressable
+                            aria-checked={form.changeDirection === option.value}
+                            accessibilityRole="radio"
+                            accessibilityState={{
+                              checked: form.changeDirection === option.value,
+                            }}
+                            key={option.value}
+                            onPress={() =>
+                              setForm({
+                                ...form,
+                                changeDirection: option.value,
+                              })
+                            }
+                            style={[
+                              styles.option,
+                              form.changeDirection === option.value &&
+                                styles.optionSelected,
+                            ]}
+                          >
+                            <Text
+                              selectable
+                              style={[
+                                styles.optionText,
+                                form.changeDirection === option.value &&
+                                  styles.optionTextSelected,
+                              ]}
+                            >
+                              {option.label}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                    <View style={styles.group}>
+                      <Text selectable style={styles.label}>
+                        결과
+                      </Text>
+                      <View style={styles.optionGrid}>
+                        {changeResultOptions.map((option) => (
+                          <Pressable
+                            aria-checked={form.changeResult === option.value}
+                            accessibilityRole="radio"
+                            accessibilityState={{
+                              checked: form.changeResult === option.value,
+                            }}
+                            key={option.value}
+                            onPress={() =>
+                              setForm({
+                                ...form,
+                                changeResult: option.value,
+                              })
+                            }
+                            style={[
+                              styles.option,
+                              form.changeResult === option.value && styles.optionSelected,
+                            ]}
+                          >
+                            <Text
+                              selectable
+                              style={[
+                                styles.optionText,
+                                form.changeResult === option.value &&
+                                  styles.optionTextSelected,
+                              ]}
+                            >
+                              {option.label}
+                            </Text>
+                          </Pressable>
+                        ))}
+                      </View>
+                    </View>
+                  </>
+                ) : null}
+              </>
+            ) : null}
+          </>
         ) : null}
       </View>
+
+      {submitError ? (
+        <Text selectable style={styles.submitError}>
+          {submitError}
+        </Text>
+      ) : null}
 
       <View style={styles.history}>
         <View style={styles.sectionHeader}>
@@ -1038,6 +1155,7 @@ function InputField({
       </View>
       <View style={styles.inputRow}>
         <TextInput
+          accessibilityLabel={label}
           value={value}
           onChangeText={onChangeText}
           placeholder={placeholder}
@@ -1197,6 +1315,9 @@ function createStyles(colors: AppColors) {
     flex: 1,
   },
   content: {
+    width: "100%",
+    maxWidth: layout.contentMaxWidth,
+    alignSelf: "center",
     gap: spacing.lg,
     padding: layout.screenPadding,
     paddingBottom: 112,
@@ -1312,6 +1433,24 @@ function createStyles(colors: AppColors) {
     alignItems: "center",
     gap: spacing.sm,
   },
+  sectionToggleHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.md,
+  },
+  sectionToggle: {
+    flexDirection: "row",
+    minHeight: layout.minTouchSize,
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: spacing.sm,
+    borderColor: colors.border,
+    borderRadius: radius.sm,
+    borderWidth: 1,
+    paddingHorizontal: spacing.md,
+    backgroundColor: colors.surface,
+  },
   sectionIcon: {
     width: 34,
     height: 34,
@@ -1397,6 +1536,16 @@ function createStyles(colors: AppColors) {
     flexWrap: "wrap",
     gap: spacing.sm,
   },
+  numberField: {
+    flex: 1,
+    minWidth: 0,
+  },
+  numberFieldCompact: {
+    flexBasis: "45%",
+  },
+  sessionFieldGrid: {
+    gap: spacing.md,
+  },
   group: {
     gap: spacing.sm,
   },
@@ -1434,7 +1583,7 @@ function createStyles(colors: AppColors) {
     justifyContent: "center",
     borderRadius: radius.sm,
     paddingVertical: spacing.lg,
-    backgroundColor: colors.primary,
+    backgroundColor: colors.primaryDark,
   },
   primaryButtonDisabled: {
     opacity: 0.65,

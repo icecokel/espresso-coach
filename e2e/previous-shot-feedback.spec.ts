@@ -23,6 +23,7 @@ test("recommends a coarser grind after a finer adjustment worsens the second sho
   await fillShot(page, { doseGrams: "19", yieldGrams: "38" });
   await expect(page.getByText("도징량 18g → 19g · 늘림")).toBeVisible();
   await expect(page.getByText("추출량 36g → 38g · 늘림")).toBeVisible();
+  await page.getByRole("button", { name: "선택 관찰 열기" }).click();
   await page.getByRole("radio", { name: "분쇄도" }).last().click();
   await page.getByRole("radio", { name: "더 곱게" }).last().click();
   await page.getByRole("radio", { name: "나빠짐" }).last().click();

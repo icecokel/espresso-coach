@@ -166,6 +166,68 @@ describe("createNativeRepository", () => {
     expect(shotNumber).toBe(3);
   });
 
+  it("deletes the latest shot and updates its session in one transaction", async () => {
+    const deletedNow = "2026-06-20T18:10:00+09:00";
+    databaseMock.getFirstAsync.mockImplementation((sql: string, sessionId?: string) => {
+      if (sql.includes("ORDER BY shot_number DESC")) {
+        return Promise.resolve({ id: "shot_2" });
+      }
+      if (sql.includes("FROM bean_sessions")) {
+        const storedSession = session(sessionId);
+        return Promise.resolve({
+          id: storedSession.id,
+          data: JSON.stringify(storedSession),
+          status: storedSession.status,
+          updated_at: storedSession.updatedAt,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+    const repository = createNativeRepository({
+      databaseName: "test.db",
+      now: () => deletedNow,
+    });
+
+    await repository.deleteLatestShot("session_1", "shot_2");
+
+    expect(databaseMock.withExclusiveTransactionAsync).toHaveBeenCalledTimes(1);
+    const deleteCall = databaseMock.runAsync.mock.calls.find(([sql]) =>
+      (sql as string).includes("DELETE FROM shot_records"),
+    );
+    expect(deleteCall?.slice(1)).toEqual(["shot_2", "session_1"]);
+    const updateCall = databaseMock.runAsync.mock.calls.find(([sql]) =>
+      (sql as string).includes("UPDATE bean_sessions"),
+    );
+    expect(JSON.parse(updateCall?.[1] as string)).toMatchObject({
+      id: "session_1",
+      updatedAt: deletedNow,
+    });
+  });
+
+  it("rejects deletion when the requested shot is not the latest", async () => {
+    databaseMock.getFirstAsync.mockImplementation((sql: string, sessionId?: string) => {
+      if (sql.includes("ORDER BY shot_number DESC")) {
+        return Promise.resolve({ id: "shot_2" });
+      }
+      if (sql.includes("FROM bean_sessions")) {
+        const storedSession = session(sessionId);
+        return Promise.resolve({
+          id: storedSession.id,
+          data: JSON.stringify(storedSession),
+          status: storedSession.status,
+          updated_at: storedSession.updatedAt,
+        });
+      }
+      return Promise.resolve(undefined);
+    });
+    const repository = createNativeRepository({ databaseName: "test.db" });
+
+    await expect(
+      repository.deleteLatestShot("session_1", "shot_1"),
+    ).rejects.toThrow("Only the latest shot can be deleted");
+    expect(databaseMock.runAsync).not.toHaveBeenCalled();
+  });
+
   it("updates sessions without replace semantics so existing shots are not cascaded away", async () => {
     const updatedNow = "2026-06-20T18:00:00+09:00";
     const repository = createNativeRepository({

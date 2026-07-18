@@ -1,6 +1,6 @@
 import { useColorScheme } from "react-native";
 
-export const lightColors = {
+const lightColors = {
   background: "#f3f4f1",
   backgroundAlt: "#e9efe9",
   surface: "#fcfcf8",
@@ -24,7 +24,7 @@ export const lightColors = {
   warning: "#8c6b35",
 };
 
-export const darkColors: AppColors = {
+const darkColors: AppColors = {
   background: "#111614",
   backgroundAlt: "#1a211d",
   surface: "#171d1a",
@@ -54,8 +54,6 @@ export type AppTheme = {
   colorScheme: "light" | "dark";
 };
 
-export const colors = lightColors;
-
 export function useAppTheme(): AppTheme {
   const colorScheme = useColorScheme() === "dark" ? "dark" : "light";
   return {
@@ -82,9 +80,10 @@ export const layout = {
   screenPadding: spacing.lg,
   scrollBottomPadding: 40,
   minTouchSize: 44,
+  contentMaxWidth: 1120,
 };
 
-export const fontFamily = {
+const fontFamily = {
   regular: "Pretendard-Regular",
   medium: "Pretendard-Medium",
   semiBold: "Pretendard-SemiBold",

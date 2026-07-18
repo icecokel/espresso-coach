@@ -4,6 +4,7 @@ import type { BeanSession, DateTimeString, RoastProfile, ShotRecord } from "../d
 export type ShotRecordDraft = Omit<ShotRecord, "shotNumber">;
 
 export const ARCHIVED_SESSION_SHOT_ERROR = "Archived sessions cannot save shots";
+export const LATEST_SHOT_DELETE_ERROR = "Only the latest shot can be deleted";
 
 export interface EspressoCoachRepository {
   createSession(session: BeanSession): Promise<BeanSession>;
@@ -19,6 +20,7 @@ export interface EspressoCoachRepository {
   getSession(sessionId: string): Promise<BeanSession | undefined>;
   createShot(shot: ShotRecord): Promise<ShotRecord>;
   createShotWithNextNumber(shot: ShotRecordDraft): Promise<ShotRecord>;
+  deleteLatestShot(sessionId: string, shotId: string): Promise<void>;
   getShot(shotId: string): Promise<ShotRecord | undefined>;
   listShots(sessionId: string): Promise<ShotRecord[]>;
 }
@@ -121,6 +123,22 @@ export function createMemoryRepository(
           .filter((item) => item.sessionId === shot.sessionId)
           .reduce((max, item) => Math.max(max, item.shotNumber), 0) + 1;
       return this.createShot({ ...shot, shotNumber: nextShotNumber });
+    },
+
+    async deleteLatestShot(sessionId, shotId) {
+      const session = requireActiveSession(getRequiredSession(sessions, sessionId));
+      const latestShot = [...shots.values()]
+        .filter((shot) => shot.sessionId === sessionId)
+        .sort((left, right) => right.shotNumber - left.shotNumber)[0];
+      if (!latestShot || latestShot.id !== shotId) {
+        throw new Error(LATEST_SHOT_DELETE_ERROR);
+      }
+
+      shots.delete(shotId);
+      sessions.set(sessionId, {
+        ...session,
+        updatedAt: now(),
+      });
     },
 
     async getShot(shotId) {

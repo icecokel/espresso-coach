@@ -150,7 +150,7 @@ function createFallbackStyles(colors: AppColors) {
     },
     retryButton: {
       alignItems: "center",
-      backgroundColor: colors.primary,
+      backgroundColor: colors.primaryDark,
       borderRadius: radius.sm,
       justifyContent: "center",
       marginTop: spacing.sm,

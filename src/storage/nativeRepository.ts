@@ -2,6 +2,7 @@ import { openDatabaseAsync, type SQLiteDatabase } from "expo-sqlite";
 import type { BeanSession, ShotRecord } from "../domain/types";
 import {
   ARCHIVED_SESSION_SHOT_ERROR,
+  LATEST_SHOT_DELETE_ERROR,
   type EspressoCoachRepository,
   type RepositoryOptions,
   validateShotForStorage,
@@ -318,6 +319,56 @@ export function createNativeRepository(
         throw new Error("ShotRecord was not created");
       }
       return savedShot;
+    },
+
+    async deleteLatestShot(sessionId, shotId) {
+      const database = await getDatabase();
+
+      await database.withExclusiveTransactionAsync(async (transaction) => {
+        const sessionRow = await transaction.getFirstAsync<StoredSessionRow>(
+          `SELECT * FROM bean_sessions WHERE id = ?`,
+          sessionId,
+        );
+        if (!sessionRow) {
+          throw new Error(`BeanSession not found: ${sessionId}`);
+        }
+        if (sessionRow.status === "archived") {
+          throw new Error(ARCHIVED_SESSION_SHOT_ERROR);
+        }
+
+        const latestShot = await transaction.getFirstAsync<Pick<StoredShotRow, "id">>(
+          `SELECT id
+             FROM shot_records
+            WHERE session_id = ?
+            ORDER BY shot_number DESC
+            LIMIT 1`,
+          sessionId,
+        );
+        if (!latestShot || latestShot.id !== shotId) {
+          throw new Error(LATEST_SHOT_DELETE_ERROR);
+        }
+
+        await transaction.runAsync(
+          `DELETE FROM shot_records WHERE id = ? AND session_id = ?`,
+          shotId,
+          sessionId,
+        );
+
+        const updatedSession: BeanSession = {
+          ...parseStoredJson<BeanSession>(sessionRow.data),
+          status: sessionRow.status,
+          updatedAt: now(),
+        };
+        await transaction.runAsync(
+          `UPDATE bean_sessions
+              SET data = ?, status = ?, updated_at = ?
+            WHERE id = ?`,
+          JSON.stringify(updatedSession),
+          updatedSession.status,
+          updatedSession.updatedAt,
+          updatedSession.id,
+        );
+      });
     },
 
     async getShot(shotId) {
