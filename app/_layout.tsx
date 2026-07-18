@@ -9,6 +9,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { SafeAreaProvider } from "react-native-safe-area-context";
 import { getFontLoadState } from "../src/native/fontLoadState";
 import {
   layout,
@@ -33,12 +34,14 @@ export default function RootLayout() {
   const [fontLoadAttempt, setFontLoadAttempt] = useState(0);
 
   return (
-    <FontGate
-      colorScheme={colorScheme}
-      colors={colors}
-      key={fontLoadAttempt}
-      onRetry={() => setFontLoadAttempt((attempt) => attempt + 1)}
-    />
+    <SafeAreaProvider>
+      <FontGate
+        colorScheme={colorScheme}
+        colors={colors}
+        key={fontLoadAttempt}
+        onRetry={() => setFontLoadAttempt((attempt) => attempt + 1)}
+      />
+    </SafeAreaProvider>
   );
 }
 

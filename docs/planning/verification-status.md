@@ -11,11 +11,14 @@ Last updated: 2026-07-19
 - Headless verification: 로컬에서 UI 조작 없이 자동 실행 가능한 설치, 정적 검사, 단위 테스트, Expo 설정 검사, dependency audit
 - Automated local web E2E: Expo web bundle을 생성하고 로컬 정적 서버에서 Playwright로 자동 확인
 - Historical local web runtime smoke test: 2026-07-04에 수동으로 기록한 Playwright 주요 사용자 흐름 확인
+- Android emulator native E2E: Expo Go에서 Android keyboard, safe area, SQLite, OS integration을 ADB와 UI Automator로 확인
 - Device/build verification: Expo Go, simulator/emulator, EAS preview build, production build에서만 확인 가능한 실제 앱 동작
 
 ## Current Result
 
-2026-07-19 기준 headless 검증과 자동 local web E2E가 통과했다. 검증 환경은 Node.js `v26.5.0` / npm `11.17.0`이다. `npm ci`는 2026-07-12에 `EBADENGINE` 경고 없이 성공했다. npm 11.17.0은 dependency install에서 `allow-scripts` pending 안내를 출력했지만 설치와 audit은 성공했으며, 이는 install script 승인 상태를 안내하는 메시지로만 기록한다.
+2026-07-19 기준 headless 검증, 자동 local web E2E, Android 16/API 36 Emulator의 Expo Go native E2E가 통과했다. 검증 환경은 Node.js `v26.5.0` / npm `11.17.0`이다. `npm ci`는 2026-07-12에 `EBADENGINE` 경고 없이 성공했다. npm 11.17.0은 dependency install에서 `allow-scripts` pending 안내를 출력했지만 설치와 audit은 성공했으며, 이는 install script 승인 상태를 안내하는 메시지로만 기록한다.
+
+Android E2E에서 빠른 진단 상단 status bar 침범, 상세 화면 하단 gesture bar 침범, IME 뒤에 숨는 고정 CTA를 발견했다. safe area와 keyboard avoidance를 반영한 뒤 동일 emulator에서 재검증해 통과했다. 세션 1건과 샷 2건은 Expo Go force-stop과 cold relaunch 뒤에도 native SQLite에서 복원됐다.
 
 2026-07-04의 수동 local web runtime smoke test 기록은 보존한다. 이 기록은 최신 자동 E2E의 대체가 아니며, 서로 다른 범위를 확인한다.
 
@@ -25,6 +28,7 @@ Last updated: 2026-07-19
 | TypeScript compile | `npm run lint` | Pass | 2026-07-19 |
 | Unit tests and E2E runner contract | `npm test` | Pass; 10 unit test files / 60 unit tests, then E2E runner cleanup contract | 2026-07-19 |
 | Automated local web E2E | `npm run test:e2e` | Pass; Chromium preinstall, Expo web export, Playwright 22 scenarios | 2026-07-19 |
+| Android emulator native E2E | `npx expo start --android --clear` + ADB/UI Automator | Pass; API 36 Expo Go, 19 scenarios, safe-area/keyboard fixes 재검증 | 2026-07-19 |
 | Expo project health | `npm exec expo-doctor` | Pass, 21/21 checks | 2026-07-19 |
 | Expo SDK dependency alignment | `npx expo install --check` | Pass; dependencies up to date | 2026-07-19 |
 | Dependency audit | `npm audit` | Pass, 0 vulnerabilities | 2026-07-19 |
@@ -37,7 +41,7 @@ Last updated: 2026-07-19
 
 ## Verified Areas
 
-Headless 및 자동 local web E2E로 확인된 영역:
+Headless, 자동 local web E2E, Android emulator E2E로 확인된 영역:
 
 - clean install과 dependency audit
 - TypeScript 타입 계약
@@ -68,6 +72,12 @@ Headless 및 자동 local web E2E로 확인된 영역:
 - 다크 모드 주요 CTA가 `primaryDark` token을 사용하는지 여부
 - E2E runner가 Chromium 사전 설치와 성공/실패별 artifact cleanup contract를 지키는지 여부
 - app이 font loading state를 표시하고, font error state에서 retry UI를 제공하는지 여부
+- Android keyboard 입력, keyboard 위 CTA 직접 실행, system back 동작
+- API 36 edge-to-edge의 status bar, display cutout, bottom gesture inset
+- Expo Go native SQLite 저장과 process cold restart 후 세션·샷 복원
+- Android OS dark mode 연동과 portrait orientation 고정
+- system font scale 130%의 카드·CTA 잘림과 겹침 부재
+- 최신 샷 삭제, 과거 샷 삭제 action 미노출, 세션 보관·복원 native runtime 상태 전이
 
 폰트 error UI는 pure state test와 app fallback 구현으로만 확인했다. 브라우저에서 font error를 직접 주입해 UI를 검증하는 E2E는 현재 범위에 포함하지 않았다.
 
@@ -94,7 +104,7 @@ Headless 및 자동 local web E2E로 확인된 영역:
 17. 최신 샷 삭제는 명시적 확인 뒤에만 실행되고 빈 세션 상세로 돌아간다.
 18. 다크 모드 주요 CTA는 고대비 `primaryDark` 배경 token을 사용한다.
 
-이 자동 E2E는 input warning 5개, previous-shot feedback 1개, archive/restore와 stale route 보호 1개, navigation/responsiveness 10개, core UX improvement 5개를 확인한다. 실제 기기 keyboard/safe area 검증은 다음 device 검증 범위로 보존한다.
+이 자동 E2E는 input warning 5개, previous-shot feedback 1개, archive/restore와 stale route 보호 1개, navigation/responsiveness 10개, core UX improvement 5개를 확인한다. Android keyboard와 safe area는 아래 emulator E2E에서 별도로 확인했다.
 
 ## Current Playwright CLI Visual Review
 
@@ -110,6 +120,22 @@ Headless 및 자동 local web E2E로 확인된 영역:
 8. 접근성 snapshot에서 기본 배전도 radio가 `[checked]`로 노출된다.
 
 web target은 `createMemoryRepository`를 사용하므로 hard reload 뒤 데이터 초기화는 현재 검증 target의 의도된 제약이다. native SQLite 재실행 영속성으로 해석하지 않는다.
+
+## Android Emulator Native E2E
+
+2026-07-19에 `NamelessDay_API_36` AVD에서 Expo Go를 실행하고 ADB 입력, UI Automator tree assertion, screenshot, system setting 전환으로 19개 시나리오를 확인했다. 상세 기록은 [Android Emulator E2E 2026-07-19](android-emulator-e2e-2026-07-19.md)에 남겼다.
+
+핵심 결과:
+
+1. 누락 validation, 정상 추천 생성, 같은 세션의 두 번째 샷 기록이 통과했다.
+2. 관찰 checkbox와 변경 변수·방향·결과 radio의 native checked state가 갱신됐다.
+3. Android back, 세션 목록·상세, 최신 샷 삭제, 과거 샷 보호, 세션 보관·복원이 통과했다.
+4. Expo Go process force-stop과 cold relaunch 뒤 세션 1건·샷 2건·다음 번호 `샷 03`이 복원됐다.
+5. Android dark mode, portrait orientation lock, font scale 130%가 동작했다.
+6. 상단 status bar, 하단 gesture bar, keyboard 뒤 고정 CTA 결함 3건을 수정하고 재검증했다.
+7. app PID logcat에서 fatal crash와 SQLite exception은 없었다.
+
+ADB 기본 입력기 제약 때문에 한글 IME 입력은 이 실행에서 다루지 않았다. Expo Go floating developer tools overlay와 개발 번들 cold-start 시간도 설치형 앱 결과로 해석하지 않는다.
 
 ## Historical Local Web Runtime Smoke Test
 
@@ -148,20 +174,16 @@ web target은 `createMemoryRepository`를 사용하므로 hard reload 뒤 데이
 
 주의: `python3 -m http.server --directory dist`는 Expo Router deep route를 `index.html`로 fallback하지 않아 `/session/...` 같은 직접 URL에서 404를 낸다. web runtime E2E는 SPA fallback을 지원하는 서버로 실행한다.
 
-## Not Covered By Headless Verification
+## Remaining Runtime Coverage
 
-아래 항목은 headless 검증만으로 완료 처리하지 않는다.
+Android API 36 Expo Go emulator 범위는 완료했다. 아래 항목은 아직 완료 처리하지 않는다.
 
-- iOS/Android 실제 설치 앱 실행
-- Expo Go에서 native runtime 동작
-- simulator/emulator의 safe area, status bar, keyboard behavior
-- 실제 기기에서 한글 폰트 렌더링
+- Android EAS preview와 iOS 실제 설치 앱 실행
+- 실제 Android/iOS 기기의 한글 IME와 한글 폰트 렌더링
 - font error를 직접 주입한 browser E2E와 retry 동작
-- iOS/Android OS 다크모드 연동
-- SQLite persistence의 실제 기기 재시작 후 유지
-- 앱 아이콘 표시 상태
-- Android back behavior
-- iOS/Android별 터치 타깃과 스크롤 감각
+- iOS safe area, keyboard, OS dark mode, SQLite persistence
+- 설치 앱의 아이콘과 splash 표시 상태
+- 실제 Android/iOS 기기의 터치 타깃과 스크롤 감각
 - EAS preview build 산출물 설치 및 실행
 - production build/signing/store submission
 - 제품 피드백 loop의 실제 사용자 데이터 수집 및 평가
@@ -170,31 +192,32 @@ web target은 `createMemoryRepository`를 사용하므로 hard reload 뒤 데이
 
 ## Runtime Verification Availability
 
-2026-07-04 로컬 확인:
+2026-07-19 로컬 확인:
 
 | Check | Command | Result |
 | --- | --- | --- |
-| EAS CLI availability | `npx eas-cli --version` | Pass, `eas-cli/20.5.1 darwin-arm64 node-v24.1.0` |
-| EAS login state | `npx eas-cli whoami` | Fail, `Not logged in` |
-| iOS simulator tooling | `xcrun simctl list devices booted` | Fail, `simctl` unavailable with current developer tools |
-| Xcode developer directory | `xcode-select -p` | `/Library/Developer/CommandLineTools` |
-| Android device connection | `adb devices` | No connected devices |
+| EAS CLI availability | `npx eas-cli --version` | 2026-07-04 Pass, `eas-cli/20.5.1 darwin-arm64 node-v24.1.0` |
+| EAS login state | `npx eas-cli whoami` | 2026-07-04 Fail, `Not logged in` |
+| iOS simulator tooling | `xcrun simctl list devices booted` | 2026-07-04 Fail, `simctl` unavailable with current developer tools |
+| Xcode developer directory | `xcode-select -p` | 2026-07-04 `/Library/Developer/CommandLineTools` |
+| Android emulator | `adb devices -l` | Pass, `emulator-5554`, API 36, `arm64-v8a` |
+| Expo Go native runtime | `npx expo start --android --clear` | Pass, SDK 56 project bundle과 SQLite runtime |
 
-따라서 Expo Go, simulator/emulator, EAS preview artifact 생성/설치 검증은 이 로컬 세션에서 완료하지 못했다. iOS simulator 검증은 full Xcode `simctl` 접근 또는 booted simulator가 필요하고, EAS build 검증은 EAS login 또는 project token이 필요하다. 이 범위는 다음 페이즈에서 진행한다.
+Android emulator의 Expo Go 검증은 완료했다. iOS simulator 검증은 full Xcode `simctl` 접근 또는 booted simulator가 필요하고, EAS build 검증은 EAS login 또는 project token이 필요하다.
 
 ## Recommended Next Verification Order
 
-1. Expo Go 실기기 smoke test
-2. iOS simulator 또는 Android emulator smoke test
-3. EAS login 또는 project token 준비
-4. Android preview build 설치 테스트
+1. EAS login 또는 project token 준비
+2. Android preview build 설치 테스트
+3. 실제 Android 기기에서 한글 IME와 터치 흐름 확인
+4. full Xcode 환경에서 iOS simulator 검증
 5. iOS preview/TestFlight build 테스트
 6. EAS preview build 결과 문서화
 7. Production build dry run
 
 ## Expo Go Smoke Test Checklist
 
-Expo Go에서 먼저 아래 시나리오를 확인한다.
+아래 항목은 Android API 36 emulator에서 통과했다. 실제 Android 기기에서는 한글 IME와 터치 감각을 중심으로 반복한다.
 
 - 앱 첫 실행
 - 빠른 진단 화면 진입
@@ -231,4 +254,4 @@ Expo Go에서 먼저 아래 시나리오를 확인한다.
 - `preview`: 내부 배포 및 설치 테스트
 - `production`: store 제출 전 최종 build
 
-현재 앱은 커스텀 native code가 없으므로 첫 실기기 검증은 Expo Go로 시작해도 된다. 다만 설치 앱의 아이콘, 저장소, OS integration까지 보려면 EAS preview build가 필요하다.
+현재 앱은 커스텀 native code가 없으며 Android Expo Go 검증은 완료했다. 설치 앱의 아이콘, splash, release-like 저장소와 OS integration은 EAS preview build에서 다시 확인한다.

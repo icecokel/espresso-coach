@@ -51,9 +51,9 @@ npm run setup:hooks
 
 이후 `git push`는 `npm run test:e2e`를 완료해야 진행된다. 긴급하게 우회해야 할 때만 `SKIP_PREPUSH_E2E=1 git push`를 사용한다.
 
-2026-07-19 재검증은 Node.js `v26.5.0` / npm `11.17.0`에서 수행했다. `npm run lint`, `npm test`(10 unit test files / 60 unit tests와 E2E runner contract), `npm run test:e2e`(Expo web export 기반 Playwright 22 scenarios), `npm exec expo-doctor`(21/21 checks), `npx expo install --check`, `npm audit`(0 vulnerabilities), `git diff --check`가 모두 통과했다. Expo 패치는 `expo ~56.0.16`, `expo-constants ~56.0.21`, `expo-router ~56.2.15`로 맞췄다. `npm run test:e2e`는 Chromium을 먼저 설치하고, 성공하면 `dist/`와 `output/playwright/`를 정리하며 실패 artifact는 보존한다.
+2026-07-19 재검증은 Node.js `v26.5.0` / npm `11.17.0`에서 수행했다. `npm run lint`, `npm test`(10 unit test files / 60 unit tests와 E2E runner contract), `npm run test:e2e`(Expo web export 기반 Playwright 22 scenarios), `npm exec expo-doctor`(21/21 checks), `npx expo install --check`, `npm audit`(0 vulnerabilities), `git diff --check`가 모두 통과했다. Expo 패치는 `expo ~56.0.16`, `expo-constants ~56.0.21`, `expo-router ~56.2.15`로 맞췄다. Android 16/API 36 Expo Go에서도 ADB/UI Automator 19개 native E2E 시나리오와 SQLite process-restart persistence를 확인했다. `npm run test:e2e`는 Chromium을 먼저 설치하고, 성공하면 `dist/`와 `output/playwright/`를 정리하며 실패 artifact는 보존한다.
 
-web target은 현재 production web app이 아니라 로컬 자동 E2E와 번들 검증용 target이며 메모리 저장소를 사용한다. 새로고침 후 영속성, 실기기 고유 동작과 설치 앱 동작은 각각 native SQLite, Expo Go 또는 EAS preview build에서 추가 확인해야 한다.
+web target은 현재 production web app이 아니라 로컬 자동 E2E와 번들 검증용 target이며 메모리 저장소를 사용한다. Android emulator의 native SQLite와 Expo Go 동작은 확인했으며, 실제 기기와 설치형 앱 동작은 EAS preview build에서 추가 확인해야 한다.
 
 ## Planning Documents
 
@@ -86,10 +86,11 @@ web target은 현재 production web app이 아니라 로컬 자동 E2E와 번들
 - [MVP Implementation Stack](docs/planning/mvp-implementation-stack.md): 로그인 없는 local-first React/TypeScript web app 구현 스택
 - [React Native Migration Plan](docs/planning/react-native-migration-plan.md): Expo/React Native 앱으로 전환하기 위한 작업 계획
 - [Verification Status](docs/planning/verification-status.md): headless 검증 결과와 남은 실기기/EAS 검증 범위
+- [Android Emulator E2E 2026-07-19](docs/planning/android-emulator-e2e-2026-07-19.md): API 36 Expo Go native E2E 시나리오와 발견·수정 기록
 - [Ideas](docs/ideas/README.md): 검토 중인 제품 아이디어와 실험 후보
 
 ## Current Stage
 
 현재는 Expo/React Native MVP의 Stage 1 안정화와 Stage 2 핵심 흐름을 완료한 상태다. 빠른 진단은 필수 입력을 먼저 보여주고 세션 정보와 관찰값을 접어두며, 세션 목록은 기록 확인을 우선하고 편집기는 필요할 때 연다. 이전 샷 자동 비교와 결과 기반 추천 보정, 세션 보관·복원, 상세 화면 재시도, 반응형 본문 폭, 접근성 선택 상태와 다크 모드 대비를 자동 검증한다. 활성 세션에서는 오입력 정정을 위해 최신 샷만 확인 후 삭제할 수 있고, native storage가 최신 샷 조건과 archive guard를 transaction 경계에서 강제한다.
 
-다음 페이즈에서는 Expo Go, simulator/emulator, EAS preview build의 실기기 검증을 먼저 수행한다. 제품 피드백과 추천 품질 평가, 세션 전체 삭제 정책, 코드와 CI/tooling에서의 Node runtime version 고정 정책은 아직 완료하지 않았다.
+Android API 36 emulator의 Expo Go 검증은 완료했다. 다음 페이즈에서는 실제 Android 기기, iOS simulator/device, EAS preview build 검증을 수행한다. 제품 피드백과 추천 품질 평가, 세션 전체 삭제 정책, 코드와 CI/tooling에서의 Node runtime version 고정 정책은 아직 완료하지 않았다.

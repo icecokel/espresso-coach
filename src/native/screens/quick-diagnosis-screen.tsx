@@ -16,8 +16,10 @@ import { Sparkle } from "phosphor-react-native/src/icons/Sparkle";
 import type { ReactNode } from "react";
 import { useEffect, useRef, useState } from "react";
 import {
-  Pressable,
   Image,
+  KeyboardAvoidingView,
+  Platform,
+  Pressable,
   ScrollView,
   StyleSheet,
   Text,
@@ -25,6 +27,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { buildRecommendation } from "../../domain/recommendation";
 import {
   buildExtraction,
@@ -444,12 +447,17 @@ export function QuickDiagnosisScreen() {
   }
 
   return (
-    <View style={styles.screen}>
-      <ScrollView
-        contentInsetAdjustmentBehavior="automatic"
-        style={styles.scroller}
-        contentContainerStyle={styles.content}
-      >
+    <KeyboardAvoidingView
+      behavior={Platform.OS === "ios" ? "padding" : "height"}
+      style={styles.keyboardAvoiding}
+    >
+      <SafeAreaView edges={["top", "bottom"]} style={styles.screen}>
+        <ScrollView
+          contentInsetAdjustmentBehavior="automatic"
+          keyboardShouldPersistTaps="handled"
+          style={styles.scroller}
+          contentContainerStyle={styles.content}
+        >
       <View style={styles.topBar}>
         <View style={styles.titleGroup}>
           <View style={styles.brandIcon}>
@@ -1080,9 +1088,9 @@ export function QuickDiagnosisScreen() {
           ))
         )}
       </View>
-      </ScrollView>
+        </ScrollView>
 
-      <View style={styles.actionBar}>
+        <View style={styles.actionBar}>
         {pendingInputWarnings.length > 0 ? (
           <View style={styles.inputWarningNotice}>
             <Text selectable style={styles.inputWarningTitle}>
@@ -1117,8 +1125,9 @@ export function QuickDiagnosisScreen() {
                 : "추천 받기"}
           </Text>
         </Pressable>
-      </View>
-    </View>
+        </View>
+      </SafeAreaView>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -1310,6 +1319,9 @@ function createStyles(colors: AppColors) {
   screen: {
     flex: 1,
     backgroundColor: colors.background,
+  },
+  keyboardAvoiding: {
+    flex: 1,
   },
   scroller: {
     flex: 1,

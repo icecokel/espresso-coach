@@ -18,6 +18,7 @@ import {
   View,
   type GestureResponderEvent,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BeanSession, RoastRange } from "../../domain/types";
 import { createAutoBeanSession } from "../../storage/repository";
 import { formatRoastRange, formatSessionStatus, roastRangeOptions } from "../formatters";
@@ -48,6 +49,7 @@ const initialSessionFormState: SessionFormState = {
 export function SessionsScreen() {
   const params = useLocalSearchParams<{ editSessionId?: string | string[] }>();
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = createStyles(colors);
   const scrollRef = useRef<ScrollView>(null);
   const [sessions, setSessions] = useState<BeanSession[]>([]);
@@ -317,7 +319,10 @@ export function SessionsScreen() {
       contentInsetAdjustmentBehavior="automatic"
       ref={scrollRef}
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: layout.scrollBottomPadding + insets.bottom },
+      ]}
     >
       <View style={styles.headerRow}>
         <View style={styles.headerIdentity}>

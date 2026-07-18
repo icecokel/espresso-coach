@@ -18,6 +18,7 @@ Last reviewed: 2026-07-19
 | `npm run lint` | Pass | TypeScript compile 통과 |
 | `npm test` | Pass | 10 unit test files / 60 unit tests와 E2E runner contract |
 | `npm run test:e2e` | Pass | 2026-07-19 기준 Chromium preinstall, Expo web export, Playwright 22 scenarios; 성공 시 `dist/`, `output/playwright/` 정리, 실패 artifact 보존 |
+| Android emulator E2E | Pass | Android 16/API 36 Expo Go, ADB/UI Automator 19 scenarios; safe-area/keyboard 결함 3건 수정·재검증 |
 | Historical local web runtime smoke test | Pass | 2026-07-04 수동 Playwright 기록: validation, 빠른 진단, 다중 샷, 세션 편집/선택, 모바일 viewport, not-found route |
 | `npm exec expo-doctor` | Pass, 21/21 checks | Expo SDK dependency 정합성 확인 |
 | `npm audit` | Pass | 0 vulnerabilities |
@@ -39,13 +40,14 @@ Last reviewed: 2026-07-19
 - radio/checkbox의 실제 ARIA 선택 상태와 다크 모드 주요 CTA 대비를 Playwright로 검증한다.
 - Expo/React Native 화면, SQLite 저장소, web export target이 기본 형태로 존재한다.
 - 폰트 loading/error/ready 상태는 pure state test 3개와 app fallback UI로 분리되어 있고, error state는 retry UI를 제공한다.
+- Android API 36에서 status bar, gesture bar, keyboard CTA를 기기 inset에 맞추고 native SQLite 재실행 영속성을 확인했다.
 
 현재 남은 검증 gap:
 
 - web target은 smoke test와 bundle 검증용으로 둔다. 현재 `createMemoryRepository`를 사용하므로 새로고침 후 persistence는 제품 요구사항으로 보지 않는다.
-- Expo Go, simulator, EAS preview build에서의 실기기 동작은 아직 실행하지 않았다. 현재 세션에서는 EAS login이 없고 연결된 Android 기기가 없으며, iOS simulator tooling도 현재 CommandLineTools 상태에서 `simctl`을 사용할 수 없다.
+- Android API 36 emulator의 Expo Go 동작은 확인했다. 실제 Android 기기, iOS simulator/device, EAS preview build는 아직 실행하지 않았다. EAS login이 없고 iOS simulator tooling도 현재 CommandLineTools 상태에서 `simctl`을 사용할 수 없다.
 - persistent web product가 필요해지면 별도 IndexedDB adapter 또는 backend 저장소를 설계한다.
-- 빠른 진단 저장 경로는 `createShotWithNextNumber`를 사용해 shot number 할당과 저장을 repository boundary로 묶는다. native runtime의 실제 transaction 동작은 아직 Expo Go 또는 설치 앱에서 확인하지 못했다.
+- 빠른 진단 저장 경로는 `createShotWithNextNumber`를 사용해 shot number 할당과 저장을 repository boundary로 묶는다. Expo Go native SQLite의 연속 shot number와 process restart persistence는 확인했으며, release-like transaction 동작은 EAS preview에서 다시 확인한다.
 - font error state를 browser E2E에서 직접 주입하는 검증은 아직 없다.
 - 제품 피드백 loop와 실제 사용자 데이터 기반 추천 품질 평가는 아직 없다. 세션 전체 삭제 정책도 아직 결정하지 않았다.
 - `package.json` engine 범위는 선언됐지만, 코드와 CI/tooling에서 Node runtime version을 고정하는 정책은 아직 없다.
@@ -67,10 +69,11 @@ Last reviewed: 2026-07-19
 - 필수 입력 우선 빠른 진단, 기본 접힘 선택 입력, 기록 우선 세션 목록과 상세 primary action
 - 최신 샷 1건 정정 삭제와 memory/native repository guard
 - 320px 숫자 입력 재배치, 1120px 본문 제한, ARIA checked/expanded, 다크 모드 CTA 대비
+- Android API 36 Expo Go의 keyboard, safe area, back, dark mode, SQLite persistence, archive/delete 흐름
 
 다음 페이즈로 이관하는 범위:
 
-- Expo Go, simulator/emulator, EAS preview build 실기기 검증
+- 실제 Android 기기, iOS simulator/device, EAS preview build 검증
 - 고급 모드 UI, 제품 피드백 loop, 추천 품질 평가, 실험 결과 모델
 - 세션 전체 삭제 정책
 - persistent web product 저장소, export/sync
@@ -81,7 +84,7 @@ Last reviewed: 2026-07-19
 | Stage | Name | Goal | When to start |
 | --- | --- | --- | --- |
 | 1 | 안정화와 검증 정합성 | 현재 구현이 검증 기준을 다시 통과하게 만든다. | 즉시 |
-| 2 | MVP 제품 완성도 | 문서상 핵심 MVP와 실제 앱 흐름의 차이를 줄인다. | 이번 페이즈 코드 반영 완료, 실기기 확인은 다음 페이즈 |
+| 2 | MVP 제품 완성도 | 문서상 핵심 MVP와 실제 앱 흐름의 차이를 줄인다. | 코드와 Android emulator 확인 완료, 실제 기기·iOS는 다음 페이즈 |
 | 3 | 확장성과 운영 준비 | 저장소, 테스트, build, 장기 유지보수 기반을 강화한다. | 저장소 기반 보강 완료, preview build 운영은 다음 페이즈 |
 
 ## Stage 1. 안정화와 검증 정합성
@@ -134,7 +137,7 @@ Last reviewed: 2026-07-19
 | P1 | 기록 우선 세션 흐름 | Done | 목록을 편집기보다 먼저 표시하고 상세에서 다음 샷, 수정, 보관/복원 제공 |
 | P1 | 최신 샷 정정 삭제 | Done | 활성 세션 최신 샷만 2단계 확인 후 삭제; memory/native guard와 E2E |
 | P1 | 반응형·접근성·다크 모드 보강 | Done | 320px 입력 재배치, 1120px 본문 제한, ARIA 상태, 고대비 CTA |
-| P1 | keyboard/safe area/CTA 동작 점검 | Next phase | Expo Go smoke test에서 입력 필드와 하단 CTA 확인 |
+| P1 | keyboard/safe area/CTA 동작 점검 | Done on Android emulator | API 36 status/gesture inset과 keyboard 위 CTA 직접 실행; 실제 Android/iOS 기기는 후속 |
 | P1 | 제품 피드백 loop와 추천 품질 평가 | Next phase | 실제 사용자 feedback 수집, 추천 품질 평가, 후속 action 연결 |
 | P1 | session archive/restore UX | Done | 보관/복원, archived session 조회 유지, 진단·shot write 차단, web E2E |
 | P2 | 세션 전체 삭제 정책 | Next phase | 장기 보관 세션 전체의 삭제 기준과 사용자 확인 흐름 결정 |
@@ -150,7 +153,7 @@ Last reviewed: 2026-07-19
 - 보관된 세션은 detail에서 조회·복원할 수 있고, 진단 선택과 shot write는 거부된다.
 - 활성 세션의 최신 샷만 확인 후 삭제할 수 있고 이전 샷과 보관 세션의 샷은 삭제되지 않는다.
 - 320px부터 1440px까지 필수 입력과 주요 동작이 잘림·수평 overflow 없이 표시된다.
-- Expo Go에서 필수 입력, 추천 생성, 저장, 재실행 후 기록 확인은 다음 페이즈 smoke test에서 확인한다.
+- Android API 36 Expo Go에서 필수 입력, 추천 생성, 저장, 재실행 후 기록 유지를 확인했다. 실제 Android/iOS 기기는 후속 검증한다.
 
 ### Notes
 
@@ -172,7 +175,7 @@ MVP를 반복 개발하고 preview build로 검증할 수 있도록 저장소, �
 | P0 | shot 생성 transaction 및 archive guard | Done | direct/next shot write의 native exclusive transaction과 archived session 차단 |
 | P1 | native repository 검증 보강 | Done | native adapter mock 단위 테스트 |
 | P1 | EAS preview build 실행/설치 검증 | Next phase | preview profile로 Android/iOS artifact를 만들고 설치 확인 |
-| P1 | 실기기 검증 결과 문서화 | Next phase | Expo Go / simulator / EAS preview 검증 기록 |
+| P1 | 실기기 검증 결과 문서화 | In progress | Android API 36 Expo Go 기록 완료; 실제 기기, iOS, EAS preview는 후속 |
 | P1 | Node runtime version policy | Next phase | 코드와 CI/tooling에서 지원 Node runtime을 고정하고 검증 |
 | P2 | docs 정리: web-era 문서와 RN 문서 구분 | Done | current RN MVP 기준과 web smoke/E2E 범위를 문서에서 분리 |
 | P2 | 추천 품질 regression case 확대 | Next phase | taste parser와 recommendation 테스트 케이스 추가 |
@@ -181,7 +184,7 @@ MVP를 반복 개발하고 preview build로 검증할 수 있도록 저장소, �
 
 - SQLite 저장소가 세션-샷 관계와 shot number 중복을 DB 레벨에서 방어한다.
 - EAS preview build로 설치 가능한 artifact를 생성하는 작업은 다음 페이즈에서 진행한다.
-- 앱 재실행 후 저장된 shot history 유지는 다음 페이즈에서 실제 기기 또는 simulator로 확인한다.
+- Android emulator의 Expo Go process 재실행 후 저장된 shot history 유지를 확인했다.
 - verification 문서가 headless, Expo Go, EAS preview 결과를 분리해서 기록한다.
 - web app 기준 planning 문서와 current React Native 기준 문서가 충돌하지 않는다.
 
@@ -192,14 +195,13 @@ MVP를 반복 개발하고 preview build로 검증할 수 있도록 저장소, �
 
 ## Recommended Execution Order
 
-1. Expo Go smoke test 수행
-2. iOS simulator 또는 Android emulator smoke test 수행
-3. EAS login 또는 project token 준비
-4. EAS preview build 설정
-5. Android/iOS preview artifact 설치 테스트
-6. 실기기/EAS 검증 결과 문서화
-7. Node runtime version policy를 코드와 CI/tooling에 적용
-8. 고급 모드, 제품 피드백 loop, 추천 품질 평가, 세션 전체 삭제 정책, 실험 결과 모델 설계
+1. EAS login 또는 project token 준비
+2. Android preview artifact 생성·설치 테스트
+3. 실제 Android 기기에서 한글 IME와 터치 흐름 확인
+4. full Xcode 환경에서 iOS simulator와 preview/TestFlight 검증
+5. 실기기/EAS 검증 결과 문서화
+6. Node runtime version policy를 코드와 CI/tooling에 적용
+7. 고급 모드, 제품 피드백 loop, 추천 품질 평가, 세션 전체 삭제 정책, 실험 결과 모델 설계
 
 ## Related Documents
 
@@ -208,3 +210,4 @@ MVP를 반복 개발하고 preview build로 검증할 수 있도록 저장소, �
 - [Quick Diagnosis Form](quick-diagnosis-form.md)
 - [React Native Migration Plan](react-native-migration-plan.md)
 - [Verification Status](verification-status.md)
+- [Android Emulator E2E 2026-07-19](android-emulator-e2e-2026-07-19.md)

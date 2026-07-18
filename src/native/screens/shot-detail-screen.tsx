@@ -17,6 +17,7 @@ import { Target } from "phosphor-react-native/src/icons/Target";
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { ShotRecord } from "../../domain/types";
 import {
   formatActionDirection,
@@ -38,6 +39,7 @@ type DetailState = "loading" | "ready" | "not-found" | "error";
 
 export function ShotDetailScreen({ shotId }: { shotId?: string }) {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = createStyles(colors);
   const [shot, setShot] = useState<ShotRecord | null>(null);
   const [detailState, setDetailState] = useState<DetailState>(
@@ -177,7 +179,10 @@ export function ShotDetailScreen({ shotId }: { shotId?: string }) {
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: layout.scrollBottomPadding + insets.bottom },
+      ]}
     >
       <View style={styles.resultCard}>
         <View style={styles.resultLabelRow}>

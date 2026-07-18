@@ -14,6 +14,7 @@ import {
 import type { ReactNode } from "react";
 import { useEffect, useState } from "react";
 import { Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import type { BeanSession, ShotRecord } from "../../domain/types";
 import { formatActionVariable, formatSessionStatus } from "../formatters";
 import { repository } from "../repository";
@@ -30,6 +31,7 @@ type DetailState = "loading" | "ready" | "not-found" | "error";
 
 export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
   const { colors } = useAppTheme();
+  const insets = useSafeAreaInsets();
   const styles = createStyles(colors);
   const [session, setSession] = useState<BeanSession | null>(null);
   const [shots, setShots] = useState<ShotRecord[]>([]);
@@ -146,7 +148,10 @@ export function SessionDetailScreen({ sessionId }: { sessionId?: string }) {
     <ScrollView
       contentInsetAdjustmentBehavior="automatic"
       style={styles.screen}
-      contentContainerStyle={styles.content}
+      contentContainerStyle={[
+        styles.content,
+        { paddingBottom: layout.scrollBottomPadding + insets.bottom },
+      ]}
     >
       <View style={styles.header}>
         <View style={styles.headerTitleRow}>
