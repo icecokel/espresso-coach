@@ -42,6 +42,31 @@
 | 18 | 세션 보관 시 다음 샷 action 제거, 복원 시 active action 복귀 | Pass |
 | 19 | app PID logcat의 fatal crash와 SQLite exception 확인 | Pass, 해당 오류 없음 |
 
+## Second Clean-Data Regression Pass
+
+수정 사항이 반영된 `main`의 `7a20d9e`에서 snapshot을 사용하지 않고 AVD를 다시 부팅했다. `adb shell pm clear host.exp.exponent`로 Expo Go 앱 데이터와 SQLite를 비운 뒤 핵심 회귀 경로를 새 상태에서 다시 실행했다.
+
+| # | Focused check | Result |
+| --- | --- | --- |
+| 1 | 앱 데이터 초기화 뒤 첫 실행이 `샷 01 / 최근 기록 0`으로 시작 | Pass |
+| 2 | status bar, bottom gesture inset과 빠른 진단 header·고정 CTA 간격 | Pass |
+| 3 | 맛 입력 keyboard 위 CTA 노출·직접 실행과 숫자 누락 validation 3건 | Pass |
+| 4 | `sour / 18g / 36g / 28s` 저장, 추천 상세, back 후 `샷 02 / 최근 기록 1` 갱신 | Pass |
+| 5 | Expo Go PID force-stop과 deep link cold relaunch 뒤 SQLite 복원 | Pass |
+| 6 | Android dark mode 전환 뒤 핵심 텍스트, 입력, CTA 표시 | Pass |
+| 7 | 최신 샷 삭제 확인 UI의 bottom inset과 취소 뒤 데이터 보존 | Pass |
+| 8 | system font scale 130%의 데이터 복원, 카드 reflow, CTA 노출·gesture bar 간격 | Pass, header 보조 문구의 마지막 글자 단독 줄바꿈은 유지 |
+| 9 | font scale·theme 원상 복구와 PID logcat fatal/SQLite 오류 확인 | Pass, 해당 오류 없음 |
+
+주요 좌표 assertion은 다음과 같다.
+
+- 기본 화면 title 상단 `183px` > status bar 하단 `136px`
+- keyboard 표시 중 CTA text 하단 `1359px` < IME 상단 `1517px`
+- 삭제 확인 action text 하단 `2284px` < navigation bar 상단 `2337px`
+- font scale 130%에서 CTA text 하단 `2242px` < navigation bar 상단 `2337px`
+
+새 기능 결함은 발견되지 않았다. 화면에 보이는 `18.0 / 36.0 / 28`은 초기값이 아닌 placeholder이므로 첫 제출에서 숫자 validation이 발생하는 현재 동작도 다시 확인했다.
+
 ## Issues Found And Fixed
 
 ### 1. Quick Diagnosis Top Safe Area
@@ -71,6 +96,7 @@ API 36 edge-to-edge 화면에서 상태바 시간·아이콘이 `빠른 진단` 
 ## Runtime Notes
 
 - 첫 force-stop 뒤 Expo Go 개발 번들의 cold load는 약 18초, 최종 cached cold load는 약 8초가 걸렸다. Metro 개발 환경 수치이므로 production 성능 기준으로 사용하지 않는다.
+- clean-data 두 번째 pass에서는 host memory pressure로 emulator가 software GL을 사용했고, 첫 force-stop 뒤 화면 복원까지 약 49초가 걸렸다. 설정 변경에 따른 Expo Go reload도 40초 이상 걸려 편차가 컸으므로 preview build에서 별도 측정해야 한다.
 - Expo Go의 floating developer tools 버튼이 화면 우측 상단을 덮는다. Expo Go 전용 overlay이며 설치형 preview build에서 다시 확인해야 한다.
 - 프로세스 초기화 중 Expo Go host의 `ReactNoCrashSoftException: Cannot get UIManager because the instance hasn't been initialized yet`가 logcat에 남았지만 앱 crash, fatal exception, SQLite exception은 없었다.
 - AVD의 timezone 때문에 자동 생성 세션명은 `2026-07-18`로 표시됐다. host 검증일은 2026-07-19이다.

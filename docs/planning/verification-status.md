@@ -18,7 +18,7 @@ Last updated: 2026-07-19
 
 2026-07-19 기준 headless 검증, 자동 local web E2E, Android 16/API 36 Emulator의 Expo Go native E2E가 통과했다. 검증 환경은 Node.js `v26.5.0` / npm `11.17.0`이다. `npm ci`는 2026-07-12에 `EBADENGINE` 경고 없이 성공했다. npm 11.17.0은 dependency install에서 `allow-scripts` pending 안내를 출력했지만 설치와 audit은 성공했으며, 이는 install script 승인 상태를 안내하는 메시지로만 기록한다.
 
-Android E2E에서 빠른 진단 상단 status bar 침범, 상세 화면 하단 gesture bar 침범, IME 뒤에 숨는 고정 CTA를 발견했다. safe area와 keyboard avoidance를 반영한 뒤 동일 emulator에서 재검증해 통과했다. 세션 1건과 샷 2건은 Expo Go force-stop과 cold relaunch 뒤에도 native SQLite에서 복원됐다.
+Android E2E에서 빠른 진단 상단 status bar 침범, 상세 화면 하단 gesture bar 침범, IME 뒤에 숨는 고정 CTA를 발견했다. safe area와 keyboard avoidance를 반영한 뒤 동일 emulator에서 재검증해 통과했다. 이후 Expo Go 데이터를 지운 두 번째 focused pass에서도 첫 샷 저장, force-stop 복원, dark mode, 130% font scale, 삭제 취소가 통과했고 세션 1건과 샷 1건이 native SQLite에서 복원됐다.
 
 2026-07-04의 수동 local web runtime smoke test 기록은 보존한다. 이 기록은 최신 자동 E2E의 대체가 아니며, 서로 다른 범위를 확인한다.
 
@@ -28,7 +28,7 @@ Android E2E에서 빠른 진단 상단 status bar 침범, 상세 화면 하단 g
 | TypeScript compile | `npm run lint` | Pass | 2026-07-19 |
 | Unit tests and E2E runner contract | `npm test` | Pass; 10 unit test files / 60 unit tests, then E2E runner cleanup contract | 2026-07-19 |
 | Automated local web E2E | `npm run test:e2e` | Pass; Chromium preinstall, Expo web export, Playwright 22 scenarios | 2026-07-19 |
-| Android emulator native E2E | `npx expo start --android --clear` + ADB/UI Automator | Pass; API 36 Expo Go, 19 scenarios, safe-area/keyboard fixes 재검증 | 2026-07-19 |
+| Android emulator native E2E | `npx expo start --android --clear` + ADB/UI Automator | Pass; API 36 Expo Go, 19 scenarios + clean-data focused checks 9건 | 2026-07-19 |
 | Expo project health | `npm exec expo-doctor` | Pass, 21/21 checks | 2026-07-19 |
 | Expo SDK dependency alignment | `npx expo install --check` | Pass; dependencies up to date | 2026-07-19 |
 | Dependency audit | `npm audit` | Pass, 0 vulnerabilities | 2026-07-19 |
@@ -123,7 +123,7 @@ web target은 `createMemoryRepository`를 사용하므로 hard reload 뒤 데이
 
 ## Android Emulator Native E2E
 
-2026-07-19에 `NamelessDay_API_36` AVD에서 Expo Go를 실행하고 ADB 입력, UI Automator tree assertion, screenshot, system setting 전환으로 19개 시나리오를 확인했다. 상세 기록은 [Android Emulator E2E 2026-07-19](android-emulator-e2e-2026-07-19.md)에 남겼다.
+2026-07-19에 `NamelessDay_API_36` AVD에서 Expo Go를 실행하고 ADB 입력, UI Automator tree assertion, screenshot, system setting 전환으로 19개 시나리오를 확인했다. 수정 반영 뒤에는 AVD를 snapshot 없이 다시 부팅하고 Expo Go 데이터를 지운 상태에서 핵심 9개 항목을 한 번 더 확인했다. 상세 기록은 [Android Emulator E2E 2026-07-19](android-emulator-e2e-2026-07-19.md)에 남겼다.
 
 핵심 결과:
 
@@ -134,6 +134,7 @@ web target은 `createMemoryRepository`를 사용하므로 hard reload 뒤 데이
 5. Android dark mode, portrait orientation lock, font scale 130%가 동작했다.
 6. 상단 status bar, 하단 gesture bar, keyboard 뒤 고정 CTA 결함 3건을 수정하고 재검증했다.
 7. app PID logcat에서 fatal crash와 SQLite exception은 없었다.
+8. clean-data 재실행에서도 첫 샷 저장, process 복원, dark mode, 삭제 취소, 130% font scale이 통과했다.
 
 ADB 기본 입력기 제약 때문에 한글 IME 입력은 이 실행에서 다루지 않았다. Expo Go floating developer tools overlay와 개발 번들 cold-start 시간도 설치형 앱 결과로 해석하지 않는다.
 
